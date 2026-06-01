@@ -910,12 +910,30 @@ model MarketplaceListing {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  owner  Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  photos MarketplaceListingPhoto[]
+  owner   Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  photos  MarketplaceListingPhoto[]
+  unlocks ListingUnlock[]
 
   @@index([ownerId])
   @@index([city, moderation, status])
   @@map("marketplace_listings")
+}
+
+// Records that a broker (firm) unlocked an owner listing's contact — the
+// monetization + lead-ownership ledger for the open-pool model. One row per
+// (listing, firm); many firms can unlock the same listing.
+model ListingUnlock {
+  id        String   @id @default(cuid())
+  listingId String   @map("listing_id")
+  firmId    String   @map("firm_id")
+  userId    String   @map("user_id") // the broker who unlocked
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, firmId])
+  @@index([firmId])
+  @@map("listing_unlocks")
 }
 
 model MarketplaceListingPhoto {

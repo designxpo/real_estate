@@ -5,6 +5,7 @@ export const hi: Dictionary = {
   nav: {
     home: "होम",
     properties: "प्रॉपर्टीज़",
+    marketplace: "मार्केटप्लेस",
     leads: "लीड्स",
     myLeads: "मेरी लीड्स",
     deals: "डील्स",

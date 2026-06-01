@@ -12,6 +12,7 @@ import { Pill } from "@/components/ui/pill";
 type NavLabels = {
   home: string;
   properties: string;
+  marketplace: string;
   leads: string;
   myLeads: string;
   deals: string;
@@ -34,6 +35,7 @@ const NAV_ITEMS: Array<{
   { href: "/home", key: "home", icon: "◉" },
   { href: "/my-leads", key: "myLeads", icon: "◉" },
   { href: "/properties", key: "properties", icon: "▣" },
+  { href: "/marketplace", key: "marketplace", icon: "◫", badge: "new" },
   { href: "/leads", key: "leads", icon: "◎" },
   { href: "/deals", key: "deals", icon: "◈" },
   { href: "/contacts", key: "contacts", icon: "○" },

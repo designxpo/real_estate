@@ -52,13 +52,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (d.maintenanceAmount !== undefined) data.maintenanceAmount = d.maintenanceAmount;
     if (d.pincode !== undefined) data.pincode = d.pincode || null;
 
-    // Status transitions. Submitting a draft as "active" re-enters moderation;
-    // a listing already live stays live. booked/inactive just pull visibility.
+    // Status transitions. Activating publishes the listing to the broker
+    // marketplace. MVP: auto-approve (moderation -> live) on activate; a manual
+    // moderation queue can be reintroduced later by setting "pending_review".
     if (d.status !== undefined) {
       data.status = d.status;
       if (d.status === "active") {
         if (!existing.publicSlug) data.publicSlug = makeListingSlug(d.title ?? existing.title);
-        if (existing.moderation !== "live") data.moderation = "pending_review";
+        data.moderation = "live";
       }
     }
 
