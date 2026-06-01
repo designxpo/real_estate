@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { ownerListingUpdateSchema } from "@/lib/owner-validators";
 import { serializeListing, makeListingSlug } from "@/lib/owner-listing";
 import { ok, fail, preflight, withOwner } from "@/lib/owner-api";
+import { emitMarketplaceChange } from "@/lib/realtime";
 import type { Prisma } from "@prisma/client";
 
 export function OPTIONS() {
@@ -68,6 +69,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       data,
       include: { photos: true },
     });
+
+    // Push a real-time event to brokers when status/visibility changed.
+    if (d.status !== undefined && d.status !== existing.status) {
+      emitMarketplaceChange({
+        listingId: id,
+        status: updated.status,
+        moderation: updated.moderation,
+        action: "status_change",
+      });
+    }
     return ok(serializeListing(updated));
   });
 }

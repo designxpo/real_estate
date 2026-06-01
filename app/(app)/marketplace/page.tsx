@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth";
 import { formatINR } from "@/lib/utils";
 import { MarketplaceCard } from "@/components/marketplace-card";
+import { MarketplaceLive } from "@/components/marketplace-live";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,10 @@ export default async function MarketplacePage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
+          <MarketplaceLive />
+        </div>
         <p className="text-sm text-ink-muted">Owner-listed properties. Unlock to get the owner’s contact.</p>
       </div>
 
