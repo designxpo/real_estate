@@ -5,6 +5,7 @@ import { leadVisibility } from "@/lib/scope";
 import { leadCreateSchema } from "@/lib/validators";
 import { normalizePhone } from "@/lib/utils";
 import { logActivity } from "@/lib/activity";
+import { notifyProgress } from "@/lib/owner-progress";
 
 export async function GET() {
   try {
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
         propertyId: d.propertyId || null,
         source: d.source,
         sourceListingId: d.sourceListingId,
+        marketplaceListingId: d.marketplaceListingId || null,
         assignedToUserId: d.assignedToUserId || user.id,
         intent: d.intent,
         budgetMin: d.budgetMin,
@@ -75,6 +77,8 @@ export async function POST(req: Request) {
       entityId: lead.id,
       action: "create",
     });
+    // If this lead is working an owner listing, push the owner's progress.
+    if (lead.marketplaceListingId) await notifyProgress(lead.marketplaceListingId);
     return NextResponse.json({ lead }, { status: 201 });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.code }, { status: 401 });

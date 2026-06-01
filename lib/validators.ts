@@ -87,6 +87,7 @@ export const leadCreateSchema = z.object({
     .enum(["ninetynine_acres", "magicbricks", "housing", "walkin", "whatsapp", "referral", "other"])
     .default("other"),
   sourceListingId: z.string().optional(),
+  marketplaceListingId: z.string().optional().or(z.literal("")),
   intent: z.enum(["buy", "rent", "invest"]).optional(),
   budgetMin: z.coerce.number().min(0).optional(),
   budgetMax: z.coerce.number().min(0).optional(),

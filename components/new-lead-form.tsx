@@ -8,9 +8,11 @@ type Option = { id: string; label: string };
 export function NewLeadForm({
   contacts,
   properties,
+  marketplaceListingId,
 }: {
   contacts: Option[];
   properties: Option[];
+  marketplaceListingId?: string;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"existing" | "new">(contacts.length ? "existing" : "new");
@@ -27,6 +29,7 @@ export function NewLeadForm({
       intent: fd.get("intent") || undefined,
       requirementsText: fd.get("requirementsText") || undefined,
       source: fd.get("source") || "other",
+      ...(marketplaceListingId ? { marketplaceListingId } : {}),
     };
     if (mode === "existing") payload.contactId = fd.get("contactId");
     else {

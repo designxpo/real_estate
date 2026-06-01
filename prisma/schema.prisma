@@ -483,6 +483,9 @@ model Lead {
   contactId        String        @map("contact_id")
   source           ContactSource @default(other)
   sourceListingId  String?       @map("source_listing_id")
+  // Link to an owner-app marketplace listing this lead is working (open-pool).
+  // Drives the owner's real-time progress tracker.
+  marketplaceListingId String?   @map("marketplace_listing_id")
   assignedToUserId String?       @map("assigned_to_user_id")
   stage            LeadStage     @default(new)
   intent           LeadIntent?
@@ -499,12 +502,14 @@ model Lead {
   property   Property?   @relation("LeadProperty", fields: [propertyId], references: [id], onDelete: SetNull)
   contact    Contact     @relation("LeadContact", fields: [contactId], references: [id], onDelete: Cascade)
   assignedTo User?       @relation("LeadAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  marketplaceListing MarketplaceListing? @relation("ListingLeads", fields: [marketplaceListingId], references: [id], onDelete: SetNull)
   siteVisits SiteVisit[] @relation("SiteVisitLead")
   deals      Deal[]      @relation("DealLead")
   waMessages WaMessage[] @relation("WaMessageLead")
 
   @@index([firmId, stage])
   @@index([assignedToUserId])
+  @@index([marketplaceListingId])
   @@index([nextFollowupAt])
   @@map("leads")
 }
@@ -913,6 +918,7 @@ model MarketplaceListing {
   owner   Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   photos  MarketplaceListingPhoto[]
   unlocks ListingUnlock[]
+  leads   Lead[]                    @relation("ListingLeads")
 
   @@index([ownerId])
   @@index([city, moderation, status])

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthError, requireUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
+import { notifyProgress } from "@/lib/owner-progress";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -30,6 +31,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       entityId: id,
       action: "unlock",
     });
+
+    // Owner progress: an unlock moves the bar to "Inquiry" in real time.
+    await notifyProgress(id);
 
     return NextResponse.json({
       ok: true,

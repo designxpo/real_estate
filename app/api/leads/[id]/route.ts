@@ -5,6 +5,7 @@ import { leadVisibility } from "@/lib/scope";
 import { leadUpdateSchema } from "@/lib/validators";
 import { logActivity } from "@/lib/activity";
 import { notify } from "@/lib/notifications";
+import { notifyProgress } from "@/lib/owner-progress";
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -63,6 +64,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         action: "stage_change",
         payload: { from: existing.stage, to: d.stage },
       });
+      // If this lead is working an owner listing, push the owner's live progress.
+      if (lead.marketplaceListingId) await notifyProgress(lead.marketplaceListingId);
     }
 
     // Reassignment notifies the new owner.

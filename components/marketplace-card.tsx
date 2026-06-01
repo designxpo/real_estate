@@ -63,9 +63,19 @@ export function MarketplaceCard({
 
         <div className="mt-3 pt-3 border-t border-line">
           {unlocked && contact ? (
-            <div className="text-sm">
-              <div className="text-ink">{contact.name}</div>
-              <a href={`tel:${contact.phone}`} className="text-accent">{contact.phone}</a>
+            <div className="text-sm space-y-2">
+              <div>
+                <div className="text-ink">{contact.name}</div>
+                <a href={`tel:${contact.phone}`} className="text-accent">{contact.phone}</a>
+              </div>
+              {/* Creates a Lead linked to this owner listing; advancing it in the
+                  kanban drives the owner's live progress tracker. */}
+              <a
+                href={`/leads/new?marketplaceListingId=${id}`}
+                className="block w-full text-center text-sm px-3 py-2 rounded-inner bg-accent text-white hover:bg-accent/90"
+              >
+                Bring a buyer →
+              </a>
             </div>
           ) : (
             <button
