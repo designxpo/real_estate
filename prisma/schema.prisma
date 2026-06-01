@@ -1,0 +1,935 @@
+// Phases 1-7 schema covers full broker workflow.
+// Outstanding (per spec): analytics dashboard, multi-language, mobile app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  principal
+  sub_broker
+  accounts
+  landlord // External property owner — magic-link access, can only toggle their property's status
+}
+
+enum ContactType {
+  buyer
+  seller
+  tenant
+  landlord
+  other
+}
+
+enum ContactSource {
+  ninetynine_acres
+  magicbricks
+  housing
+  walkin
+  whatsapp
+  referral
+  other
+}
+
+enum ListingType {
+  sale
+  rent
+  pg
+  commercial_lease
+}
+
+enum PropertyType {
+  apartment
+  villa
+  plot
+  office
+  shop
+  warehouse
+  other
+}
+
+enum Furnishing {
+  unfurnished
+  semi
+  fully
+}
+
+enum PriceUnit {
+  lakh
+  crore
+  per_month
+  per_sqft
+}
+
+enum PropertyStatus {
+  draft
+  active
+  under_offer
+  closed
+  withdrawn
+  // Landlord activation state machine (Phase 1 of the B2B2C brief):
+  // draft -> pending -> active <-> booked -> inactive
+  pending // Broker requested activation; awaiting landlord magic-link confirmation
+  booked // Landlord secured a tenant; public listing auto-archived
+  inactive // Withdrawn from the activation flow
+}
+
+enum LeadStage {
+  new
+  contacted
+  site_visit_scheduled
+  visited
+  negotiating
+  token
+  agreement
+  registered
+  lost
+}
+
+enum LeadIntent {
+  buy
+  rent
+  invest
+}
+
+enum SiteVisitStatus {
+  scheduled
+  completed
+  no_show
+  cancelled
+}
+
+enum DealType {
+  sale
+  rent
+  lease
+}
+
+enum DealStage {
+  token
+  agreement
+  registration
+  completed
+  cancelled
+}
+
+enum CommissionRole {
+  sourcing
+  closing
+  reference
+  principal
+  showing
+  other
+}
+
+enum CommissionStatus {
+  pending
+  payable
+  paid
+  on_hold
+}
+
+enum PaymentMethod {
+  bank_transfer
+  upi
+  cash
+  cheque
+  other
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+}
+
+enum PortalId {
+  ninetynine_acres
+  magicbricks
+  housing
+  olx
+  custom_csv
+  custom_xml
+}
+
+enum ListingTargetStatus {
+  pending
+  posted
+  refreshed
+  failed
+  expired
+  disabled
+}
+
+enum PortalJobKind {
+  post
+  refresh
+  delete
+  fetch_leads
+}
+
+enum PortalJobStatus {
+  queued
+  running
+  success
+  failed
+}
+
+enum WaMessageDirection {
+  outbound
+  inbound
+}
+
+enum WaMessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+  received
+}
+
+enum NotificationKind {
+  lead_assigned
+  followup_due
+  deal_stage_change
+  commission_payable
+  commission_paid
+  invoice_paid
+  listing_refresh_failed
+  wa_inbound
+  system
+}
+
+// Marketplace (owner app) moderation state for an owner-submitted listing.
+// pending_review -> live (approved & visible to brokers) | rejected
+// live -> archived (owner or moderator pulled it)
+enum ListingModeration {
+  pending_review
+  live
+  rejected
+  archived
+}
+
+model Firm {
+  id            String    @id @default(cuid())
+  name          String
+  reraNumber    String?   @map("rera_number")
+  gstNumber     String?   @map("gst_number")
+  invoicePrefix String?   @map("invoice_prefix") // e.g. "SR" → SR/2627/0001
+  address       String?
+  city          String?
+  state         String? // For GST CGST+SGST vs IGST determination
+  pincode       String?
+  logoUrl       String?   @map("logo_url")
+  ownerUserId   String?   @map("owner_user_id")
+  webhookToken  String    @unique @default(cuid()) @map("webhook_token")
+  // Phase 9: onboarding state
+  onboardedAt   DateTime? @map("onboarded_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  users             User[]
+  contacts          Contact[]
+  properties        Property[]
+  leads             Lead[]
+  deals             Deal[]
+  invoices          Invoice[]
+  invoiceCounters   InvoiceCounter[]
+  listingTargets    ListingTarget[]
+  portalConfigs     PortalConfig[]
+  portalCredentials PortalCredential[]
+  portalJobs        PortalJob[]
+  waTemplates       WaTemplate[]
+  waMessages        WaMessage[]
+  notifications     Notification[]
+  activityLog       ActivityLog[]
+
+  @@map("firms")
+}
+
+model User {
+  id                   String   @id @default(cuid())
+  firmId               String   @map("firm_id")
+  name                 String
+  phone                String   @unique
+  email                String?  @unique
+  role                 Role     @default(sub_broker)
+  // Optional email/password login (alongside phone-OTP). Null until set.
+  passwordHash         String?  @map("password_hash")
+  commissionDefaultPct Decimal? @map("commission_default_pct") @db.Decimal(5, 2)
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  firm              Firm                @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  listedProperties  Property[]          @relation("PropertyListedBy")
+  assignedContacts  Contact[]           @relation("ContactAssignedTo")
+  assignedLeads     Lead[]              @relation("LeadAssignedTo")
+  siteVisits        SiteVisit[]         @relation("SiteVisitBroker")
+  primaryDeals      Deal[]              @relation("DealPrimaryBroker")
+  commissionSplits  CommissionSplit[]
+  notifications     Notification[]
+  preferredLanguage String              @default("en") @map("preferred_language")
+  sessions          Session[]
+  activityLog       ActivityLog[]
+  // Landlord-side relations (role = landlord)
+  ownedProperties   Property[]          @relation("PropertyLandlord")
+  magicLinks        MagicLink[]
+  statusChanges     PropertyStatusLog[] @relation("StatusChangedBy")
+
+  @@index([firmId])
+  @@map("users")
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  consumed  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@map("otp_codes")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Contact {
+  id               String        @id @default(cuid())
+  firmId           String        @map("firm_id")
+  name             String
+  phone            String
+  email            String?
+  type             ContactType   @default(other)
+  source           ContactSource @default(other)
+  assignedToUserId String?       @map("assigned_to_user_id")
+  tags             String[]      @default([])
+  notes            String?
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  whatsappOptIn   Boolean   @default(false) @map("whatsapp_opt_in")
+  whatsappOptInAt DateTime? @map("whatsapp_opt_in_at")
+  isDemo          Boolean   @default(false) @map("is_demo")
+
+  firm            Firm        @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  assignedTo      User?       @relation("ContactAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  ownedProperties Property[]  @relation("PropertyOwnerContact")
+  leads           Lead[]      @relation("LeadContact")
+  buyerDeals      Deal[]      @relation("DealBuyer")
+  sellerDeals     Deal[]      @relation("DealSeller")
+  invoices        Invoice[]   @relation("InvoiceContact")
+  waMessages      WaMessage[]
+
+  @@index([firmId])
+  @@index([phone])
+  @@map("contacts")
+}
+
+model Property {
+  id             String  @id @default(cuid())
+  firmId         String  @map("firm_id")
+  listedByUserId String  @map("listed_by_user_id")
+  ownerContactId String? @map("owner_contact_id")
+
+  listingType  ListingType  @map("listing_type")
+  propertyType PropertyType @map("property_type")
+  title        String
+  description  String?
+  bhk          Int?
+  carpetSqft   Int?         @map("carpet_sqft")
+  builtupSqft  Int?         @map("builtup_sqft")
+  superSqft    Int?         @map("super_sqft")
+
+  priceAmount       Decimal   @map("price_amount") @db.Decimal(14, 2)
+  priceUnit         PriceUnit @map("price_unit")
+  negotiable        Boolean   @default(true)
+  maintenanceAmount Decimal?  @map("maintenance_amount") @db.Decimal(12, 2)
+  depositMonths     Int?      @map("deposit_months")
+
+  addressLine String? @map("address_line")
+  locality    String?
+  city        String
+  state       String?
+  pincode     String?
+  lat         Float?
+  lng         Float?
+
+  amenities     String[]    @default([])
+  furnishing    Furnishing?
+  facing        String?
+  ageYears      Int?        @map("age_years")
+  floor         Int?
+  totalFloors   Int?        @map("total_floors")
+  availableFrom DateTime?   @map("available_from")
+
+  status       PropertyStatus @default(draft)
+  reraId       String?        @map("rera_id")
+  videoUrl     String?        @map("video_url")
+  floorplanUrl String?        @map("floorplan_url")
+
+  // Landlord (User, role=landlord) who owns this property and can toggle its
+  // status via magic link. Nullable until the broker assigns + requests activation.
+  landlordUserId String? @map("landlord_user_id")
+
+  publicSlug    String? @unique @map("public_slug")
+  publicEnabled Boolean @default(true) @map("public_enabled")
+  isDemo        Boolean @default(false) @map("is_demo")
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  lastRefreshedAt DateTime? @map("last_refreshed_at")
+
+  firm           Firm                @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  listedBy       User                @relation("PropertyListedBy", fields: [listedByUserId], references: [id])
+  ownerContact   Contact?            @relation("PropertyOwnerContact", fields: [ownerContactId], references: [id], onDelete: SetNull)
+  landlord       User?               @relation("PropertyLandlord", fields: [landlordUserId], references: [id], onDelete: SetNull)
+  photos         PropertyPhoto[]
+  leads          Lead[]              @relation("LeadProperty")
+  siteVisits     SiteVisit[]         @relation("SiteVisitProperty")
+  deals          Deal[]              @relation("DealProperty")
+  listingTargets ListingTarget[]
+  waMessages     WaMessage[]         @relation("WaMessageProperty")
+  statusLogs     PropertyStatusLog[]
+  magicLinks     MagicLink[]
+
+  @@index([firmId])
+  @@index([status])
+  @@index([landlordUserId])
+  @@map("properties")
+}
+
+// Immutable audit trail of every property status transition. Written on each
+// change by a broker OR a landlord (via magic link). Distinct from the generic
+// ActivityLog so status history can be queried + displayed on its own.
+model PropertyStatusLog {
+  id              String         @id @default(cuid())
+  firmId          String         @map("firm_id")
+  propertyId      String         @map("property_id")
+  changedByUserId String         @map("changed_by_user_id")
+  previousStatus  PropertyStatus @map("previous_status")
+  newStatus       PropertyStatus @map("new_status")
+  // "broker" | "landlord" | "system" — how the change was initiated
+  source          String         @default("broker")
+  note            String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  changedBy User     @relation("StatusChangedBy", fields: [changedByUserId], references: [id])
+
+  @@index([propertyId, createdAt])
+  @@index([firmId])
+  @@map("property_status_logs")
+}
+
+// One-time, short-lived signed token that grants a landlord scoped access to
+// confirm/toggle the status of a SINGLE property. The raw token is emailed/SMS'd;
+// only its hash is stored. Consuming it establishes a landlord session.
+// General-purpose one-time auth token. Three purposes today:
+//   property_activation — landlord confirms/toggles a property (propertyId set)
+//   team_invite         — principal invites a teammate (propertyId null)
+//   password_reset      — set/reset a password (propertyId null)
+model MagicLink {
+  id         String    @id @default(cuid())
+  firmId     String    @map("firm_id")
+  userId     String    @map("user_id") // the User this link authenticates
+  propertyId String?   @map("property_id") // set only for property_activation
+  tokenHash  String    @unique @map("token_hash")
+  purpose    String    @default("property_activation")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([propertyId])
+  @@map("magic_links")
+}
+
+model PropertyPhoto {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  url        String
+  caption    String?
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("property_photos")
+}
+
+model Lead {
+  id               String        @id @default(cuid())
+  firmId           String        @map("firm_id")
+  propertyId       String?       @map("property_id")
+  contactId        String        @map("contact_id")
+  source           ContactSource @default(other)
+  sourceListingId  String?       @map("source_listing_id")
+  assignedToUserId String?       @map("assigned_to_user_id")
+  stage            LeadStage     @default(new)
+  intent           LeadIntent?
+  budgetMin        Decimal?      @map("budget_min") @db.Decimal(14, 2)
+  budgetMax        Decimal?      @map("budget_max") @db.Decimal(14, 2)
+  requirementsText String?       @map("requirements_text")
+  nextFollowupAt   DateTime?     @map("next_followup_at")
+  lostReason       String?       @map("lost_reason")
+  isDemo           Boolean       @default(false) @map("is_demo")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  firm       Firm        @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  property   Property?   @relation("LeadProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+  contact    Contact     @relation("LeadContact", fields: [contactId], references: [id], onDelete: Cascade)
+  assignedTo User?       @relation("LeadAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  siteVisits SiteVisit[] @relation("SiteVisitLead")
+  deals      Deal[]      @relation("DealLead")
+  waMessages WaMessage[] @relation("WaMessageLead")
+
+  @@index([firmId, stage])
+  @@index([assignedToUserId])
+  @@index([nextFollowupAt])
+  @@map("leads")
+}
+
+model SiteVisit {
+  id              String          @id @default(cuid())
+  leadId          String          @map("lead_id")
+  propertyId      String          @map("property_id")
+  scheduledAt     DateTime        @map("scheduled_at")
+  status          SiteVisitStatus @default(scheduled)
+  subBrokerUserId String          @map("sub_broker_user_id")
+  feedback        String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  lead      Lead     @relation("SiteVisitLead", fields: [leadId], references: [id], onDelete: Cascade)
+  property  Property @relation("SiteVisitProperty", fields: [propertyId], references: [id], onDelete: Cascade)
+  subBroker User     @relation("SiteVisitBroker", fields: [subBrokerUserId], references: [id])
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@map("site_visits")
+}
+
+model Deal {
+  id              String   @id @default(cuid())
+  firmId          String   @map("firm_id")
+  propertyId      String   @map("property_id")
+  buyerContactId  String   @map("buyer_contact_id")
+  sellerContactId String?  @map("seller_contact_id")
+  dealType        DealType @map("deal_type")
+  agreedPrice     Decimal  @map("agreed_price") @db.Decimal(14, 2)
+
+  brokeragePctBuyerSide  Decimal? @map("brokerage_pct_buyer_side") @db.Decimal(5, 2)
+  brokeragePctSellerSide Decimal? @map("brokerage_pct_seller_side") @db.Decimal(5, 2)
+  brokerageAmountBuyer   Decimal  @default(0) @map("brokerage_amount_buyer") @db.Decimal(14, 2)
+  brokerageAmountSeller  Decimal  @default(0) @map("brokerage_amount_seller") @db.Decimal(14, 2)
+  totalBrokerage         Decimal  @map("total_brokerage") @db.Decimal(14, 2)
+
+  stage            DealStage @default(token)
+  tokenAmount      Decimal?  @map("token_amount") @db.Decimal(14, 2)
+  tokenDate        DateTime? @map("token_date")
+  agreementDate    DateTime? @map("agreement_date")
+  registrationDate DateTime? @map("registration_date")
+  cancelledAt      DateTime? @map("cancelled_at")
+  cancelledReason  String?   @map("cancelled_reason")
+
+  primaryBrokerUserId String  @map("primary_broker_user_id")
+  leadId              String? @map("lead_id")
+  notes               String?
+  isDemo              Boolean @default(false) @map("is_demo")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  firm          Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  property      Property          @relation("DealProperty", fields: [propertyId], references: [id])
+  buyer         Contact           @relation("DealBuyer", fields: [buyerContactId], references: [id])
+  seller        Contact?          @relation("DealSeller", fields: [sellerContactId], references: [id])
+  primaryBroker User              @relation("DealPrimaryBroker", fields: [primaryBrokerUserId], references: [id])
+  lead          Lead?             @relation("DealLead", fields: [leadId], references: [id], onDelete: SetNull)
+  splits        CommissionSplit[]
+  invoices      Invoice[]
+
+  @@index([firmId, stage])
+  @@index([propertyId])
+  @@map("deals")
+}
+
+model CommissionSplit {
+  id               String           @id @default(cuid())
+  dealId           String           @map("deal_id")
+  userId           String?          @map("user_id")
+  externalName     String?          @map("external_name")
+  externalPhone    String?          @map("external_phone")
+  role             CommissionRole
+  pctOfTotal       Decimal?         @map("pct_of_total") @db.Decimal(5, 2)
+  amount           Decimal          @db.Decimal(14, 2)
+  tdsPct           Decimal          @default(0) @map("tds_pct") @db.Decimal(5, 2)
+  tdsAmount        Decimal          @default(0) @map("tds_amount") @db.Decimal(14, 2)
+  netAmount        Decimal          @map("net_amount") @db.Decimal(14, 2)
+  status           CommissionStatus @default(pending)
+  paidAt           DateTime?        @map("paid_at")
+  paymentMethod    PaymentMethod?   @map("payment_method")
+  paymentReference String?          @map("payment_reference")
+  notes            String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([userId])
+  @@index([status])
+  @@map("commission_splits")
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  firmId        String   @map("firm_id")
+  dealId        String   @map("deal_id")
+  contactId     String   @map("contact_id")
+  invoiceNumber String   @unique @map("invoice_number")
+  invoiceDate   DateTime @map("invoice_date")
+  fy            String // e.g. "2627" for FY 2026-27
+
+  brokerageBase Decimal @map("brokerage_base") @db.Decimal(14, 2)
+
+  gstPct      Decimal @default(18) @map("gst_pct") @db.Decimal(5, 2)
+  cgstAmount  Decimal @default(0) @map("cgst_amount") @db.Decimal(14, 2)
+  sgstAmount  Decimal @default(0) @map("sgst_amount") @db.Decimal(14, 2)
+  igstAmount  Decimal @default(0) @map("igst_amount") @db.Decimal(14, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(14, 2)
+
+  billedToState String? @map("billed_to_state")
+  hsnSac        String  @default("9972") @map("hsn_sac")
+
+  status    InvoiceStatus @default(draft)
+  paidAt    DateTime?     @map("paid_at")
+  notes     String?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  firm    Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  deal    Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact Contact @relation("InvoiceContact", fields: [contactId], references: [id])
+
+  @@index([firmId])
+  @@index([dealId])
+  @@map("invoices")
+}
+
+model InvoiceCounter {
+  id      String @id @default(cuid())
+  firmId  String @map("firm_id")
+  fy      String
+  lastSeq Int    @default(0) @map("last_seq")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@unique([firmId, fy])
+  @@map("invoice_counters")
+}
+
+model ListingTarget {
+  id                  String              @id @default(cuid())
+  firmId              String              @map("firm_id")
+  propertyId          String              @map("property_id")
+  portal              PortalId
+  status              ListingTargetStatus @default(pending)
+  externalListingId   String?             @map("external_listing_id")
+  postedAt            DateTime?           @map("posted_at")
+  lastRefreshedAt     DateTime?           @map("last_refreshed_at")
+  nextRefreshAt       DateTime?           @map("next_refresh_at")
+  refreshCount        Int                 @default(0) @map("refresh_count")
+  refreshIntervalDays Int                 @default(5) @map("refresh_interval_days")
+  errorMessage        String?             @map("error_message")
+  portalFields        Json?               @map("portal_fields")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  firm     Firm     @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, portal])
+  @@index([firmId, portal])
+  @@index([nextRefreshAt])
+  @@map("listing_targets")
+}
+
+model PortalConfig {
+  id        String   @id @default(cuid())
+  firmId    String   @map("firm_id")
+  portal    PortalId
+  enabled   Boolean  @default(true)
+  // Portal-specific tweaks (e.g. broker_id assigned by the portal partnership team)
+  config    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@unique([firmId, portal])
+  @@map("portal_configs")
+}
+
+// Phase 6: credentials for portal API adapters. Token/secret fields are stored
+// AES-GCM encrypted (see lib/crypto.ts) — only the cipher blob is in this column.
+model PortalCredential {
+  id              String    @id @default(cuid())
+  firmId          String    @map("firm_id")
+  portal          PortalId
+  // ciphertext from lib/crypto.ts encrypt() — base64 of iv|tag|data
+  apiKeyCipher    String?   @map("api_key_cipher")
+  apiSecretCipher String?   @map("api_secret_cipher")
+  brokerCode      String?   @map("broker_code") // portal-issued ID, not secret
+  baseUrl         String?   @map("base_url")
+  notes           String?
+  lastUsedAt      DateTime? @map("last_used_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@unique([firmId, portal])
+  @@map("portal_credentials")
+}
+
+// Phase 6: async job log for API-mode adapters (post / refresh / fetch_leads).
+model PortalJob {
+  id                String          @id @default(cuid())
+  firmId            String          @map("firm_id")
+  portal            PortalId
+  kind              PortalJobKind
+  status            PortalJobStatus @default(queued)
+  targetId          String?         @map("target_id") // ListingTarget.id for post/refresh/delete
+  externalListingId String?         @map("external_listing_id")
+  payload           Json?
+  responseBody      String?         @map("response_body")
+  errorMessage      String?         @map("error_message")
+  attempts          Int             @default(0)
+  scheduledAt       DateTime        @default(now()) @map("scheduled_at")
+  startedAt         DateTime?       @map("started_at")
+  finishedAt        DateTime?       @map("finished_at")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([firmId, status])
+  @@index([scheduledAt])
+  @@map("portal_jobs")
+}
+
+// Phase 7: WhatsApp Business API templates (must mirror Meta-approved templates).
+model WaTemplate {
+  id           String   @id @default(cuid())
+  firmId       String   @map("firm_id")
+  // Meta-side fields
+  name         String // matches the Meta template name exactly
+  language     String   @default("en") // BCP47 / Meta lang code
+  category     String   @default("MARKETING") // MARKETING | UTILITY | AUTHENTICATION
+  // For local preview/rendering (Meta is the source of truth at send time):
+  bodyTemplate String   @map("body_template")
+  // Local approval/usage hints (Meta approval state lives in Meta; mirror here for UI)
+  status       String   @default("approved") // approved | pending | rejected
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  firm     Firm        @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  messages WaMessage[]
+
+  @@unique([firmId, name, language])
+  @@map("wa_templates")
+}
+
+model WaMessage {
+  id            String             @id @default(cuid())
+  firmId        String             @map("firm_id")
+  contactId     String?            @map("contact_id")
+  // Phone in E.164 minus the '+', as Meta expects
+  toPhone       String             @map("to_phone")
+  fromPhone     String?            @map("from_phone")
+  direction     WaMessageDirection
+  status        WaMessageStatus    @default(queued)
+  templateId    String?            @map("template_id")
+  templateVars  Json?              @map("template_vars")
+  bodyText      String?            @map("body_text") // freeform inbound or fallback outbound
+  metaMessageId String?            @unique @map("meta_message_id")
+  errorMessage  String?            @map("error_message")
+  // Lightweight linkage to the entity this message is about
+  propertyId    String?            @map("property_id")
+  leadId        String?            @map("lead_id")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  firm     Firm        @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  contact  Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  template WaTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  property Property?   @relation("WaMessageProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+  lead     Lead?       @relation("WaMessageLead", fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([firmId, createdAt])
+  @@index([toPhone])
+  @@map("wa_messages")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  firmId    String           @map("firm_id")
+  userId    String           @map("user_id")
+  kind      NotificationKind
+  title     String
+  body      String?
+  // Optional deep link target — relative URL, e.g. "/leads/clx123"
+  href      String?
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([firmId, createdAt])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  firmId     String   @map("firm_id")
+  userId     String?  @map("user_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  payload    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  firm Firm  @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([firmId, createdAt])
+  @@index([entityType, entityId])
+  @@map("activity_log")
+}
+
+// ============================================================================
+// MARKETPLACE (Owner app) — Phase 0
+// A firm-LESS layer. Owners self-list via the Flutter app; approved listings
+// go "live" into a global pool that ANY broker can browse (open-pool model).
+// Distinct from the firm-scoped Property model, which flows OUTWARD to portals.
+// ============================================================================
+
+// An owner is a consumer actor with no firm. Authenticated by phone OTP and
+// bearer tokens (see lib/owner-auth.ts), separate from the broker `User`.
+model Owner {
+  id         String    @id @default(cuid())
+  name       String
+  phone      String    @unique
+  email      String?
+  // Phone/KYC verification badge surfaced to brokers. Null until verified.
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  listings MarketplaceListing[]
+  sessions OwnerSession[]
+
+  @@map("owners")
+}
+
+// Long-lived refresh tokens for owners (mobile bearer-token auth). Only the
+// SHA-256 hash of the refresh token is stored, so it can be revoked/rotated.
+// Short-lived access tokens are stateless JWTs and are not stored here.
+model OwnerSession {
+  id          String   @id @default(cuid())
+  ownerId     String   @map("owner_id")
+  refreshHash String   @unique @map("refresh_hash")
+  device      String? // optional UA / device label
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("owner_sessions")
+}
+
+// An owner-submitted listing. Reuses the broker-side enums (ListingType,
+// PropertyType, Furnishing, PriceUnit, PropertyStatus) for consistency.
+// `status` drives the owner-facing lifecycle (draft/active/booked/inactive);
+// `moderation` gates public visibility to brokers.
+model MarketplaceListing {
+  id      String @id @default(cuid())
+  ownerId String @map("owner_id")
+
+  listingType  ListingType  @map("listing_type")
+  propertyType PropertyType @map("property_type")
+  title        String
+  description  String?
+  bhk          Int?
+  carpetSqft   Int?         @map("carpet_sqft")
+  builtupSqft  Int?         @map("builtup_sqft")
+
+  priceAmount       Decimal   @map("price_amount") @db.Decimal(14, 2)
+  priceUnit         PriceUnit @map("price_unit")
+  negotiable        Boolean   @default(true)
+  maintenanceAmount Decimal?  @map("maintenance_amount") @db.Decimal(12, 2)
+  depositMonths     Int?      @map("deposit_months")
+
+  addressLine String?  @map("address_line")
+  locality    String?
+  city        String
+  state       String?
+  pincode     String?
+  lat         Float?
+  lng         Float?
+  amenities   String[] @default([])
+
+  furnishing    Furnishing?
+  availableFrom DateTime?   @map("available_from")
+  reraId        String?     @map("rera_id")
+
+  status     PropertyStatus    @default(draft)
+  moderation ListingModeration @default(pending_review)
+  publicSlug String?           @unique @map("public_slug")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner  Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  photos MarketplaceListingPhoto[]
+
+  @@index([ownerId])
+  @@index([city, moderation, status])
+  @@map("marketplace_listings")
+}
+
+model MarketplaceListingPhoto {
+  id        String   @id @default(cuid())
+  listingId String   @map("listing_id")
+  url       String
+  // R2/S3 object key, so the photo can be deleted from the bucket later.
+  objectKey String?  @map("object_key")
+  caption   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("marketplace_listing_photos")
+}

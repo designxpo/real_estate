@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "lib/owner-api.ts",
+    "lib/owner-auth.ts",
+    "lib/owner-listing.ts",
+    "lib/owner-validators.ts",
+    "lib/r2.ts",
+    "lib/db.ts",
+    "lib/auth.ts",
+    "lib/utils.ts",
+    "lib/sms.ts",
+    "lib/validators.ts",
+    "app/api/v1/owner/**/*.ts"
+  ]
+}

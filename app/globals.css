@@ -1,0 +1,156 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark is the default theme */
+:root,
+[data-theme="dark"] {
+  --bg-app: #0b0c11;
+  --bg-surface: #121319;
+  --bg-surface-2: #181a22;
+  --bg-surface-3: #1e2029;
+  --text-primary: #f4f5f7;
+  --text-secondary: #9499a6;
+  --text-tertiary: #5b606d;
+  --accent-primary: #3b82f6;
+  /* Lines, hover fills, chip fills — alpha over the surface */
+  --line: rgba(255, 255, 255, 0.06);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --hover: rgba(255, 255, 255, 0.04);
+  --fill: rgba(255, 255, 255, 0.06);
+  --fill-strong: rgba(255, 255, 255, 0.1);
+  --desktop-grad: linear-gradient(135deg, #aeb8c4 0%, #7e8a99 100%);
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.4), 0 0 24px rgba(59, 130, 246, 0.35);
+  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(59, 130, 246, 0.35), transparent 70%);
+  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(34, 211, 238, 0.28), transparent 60%);
+  --bg-card-stroke: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%);
+}
+
+[data-theme="light"] {
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f1f5f9;
+  --bg-surface-3: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --accent-primary: #2563eb;
+  --line: rgba(15, 23, 42, 0.08);
+  --line-strong: rgba(15, 23, 42, 0.15);
+  --hover: rgba(15, 23, 42, 0.04);
+  --fill: rgba(15, 23, 42, 0.05);
+  --fill-strong: rgba(15, 23, 42, 0.09);
+  --desktop-grad: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 1), 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.02);
+  --shadow-glow: 0 0 0 1px rgba(37, 99, 235, 0.2), 0 0 24px rgba(37, 99, 235, 0.15);
+  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(37, 99, 235, 0.15), transparent 70%);
+  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(37, 99, 235, 0.1), transparent 60%);
+  --bg-card-stroke: linear-gradient(180deg, rgba(15, 23, 42, 0.04) 0%, rgba(15, 23, 42, 0) 50%);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-app text-ink antialiased;
+  background-color: var(--bg-app);
+  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
+  font-feature-settings: "tnum" 1, "ss01" 1;
+}
+
+/* Tabular figures on every numeric block */
+.tabular-nums,
+.font-mono,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form controls — dark surface inputs by default */
+input,
+select,
+textarea {
+  color: var(--text-primary);
+}
+input[type="text"],
+input[type="tel"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="search"],
+select,
+textarea {
+  background-color: var(--bg-surface-2);
+  border-color: var(--line);
+  color: var(--text-primary);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Date picker icon — invert only in dark mode */
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+/* Scrollbars — dark, slim */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Subtle text selection on dark */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
+
+/* Print: restore light styles so invoices print correctly */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    background-image: none !important;
+  }
+  nav,
+  aside,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  article,
+  article * {
+    color: black !important;
+    background: white !important;
+    border-color: #cbd5e1 !important;
+  }
+}
