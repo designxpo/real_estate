@@ -80,11 +80,12 @@ export function buildProgress(input: {
   };
 }
 
-export async function computeProgress(listingId: string): Promise<{ ownerId: string; progress: OwnerProgress } | null> {
+export async function computeProgress(listingId: string): Promise<{ ownerId: string; title: string; progress: OwnerProgress } | null> {
   const listing = await prisma.marketplaceListing.findUnique({
     where: { id: listingId },
     select: {
       ownerId: true,
+      title: true,
       moderation: true,
       status: true,
       _count: { select: { unlocks: true } },
@@ -94,6 +95,7 @@ export async function computeProgress(listingId: string): Promise<{ ownerId: str
   if (!listing) return null;
   return {
     ownerId: listing.ownerId,
+    title: listing.title,
     progress: buildProgress({
       moderation: listing.moderation,
       status: listing.status,
@@ -103,7 +105,16 @@ export async function computeProgress(listingId: string): Promise<{ ownerId: str
   };
 }
 
-// Recompute + push a real-time event to the owner's SSE stream.
+// Friendly push copy per step (step 0 = "listed" gets no push).
+const STEP_PUSH: Record<number, string> = {
+  1: "A broker is interested in your property 👀",
+  2: "A site visit is in motion 🏠",
+  3: "Your deal is in negotiation 🤝",
+  4: "Your deal is being finalized 📝",
+  5: "Your property deal closed! 🎉",
+};
+
+// Recompute + push a real-time SSE event AND an FCM notification to the owner.
 export async function notifyProgress(listingId: string): Promise<void> {
   const result = await computeProgress(listingId);
   if (!result) return;
@@ -112,4 +123,15 @@ export async function notifyProgress(listingId: string): Promise<void> {
     listingId,
     progress: result.progress,
   });
+
+  const body = STEP_PUSH[result.progress.step];
+  if (body) {
+    // Lazy import keeps firebase-admin out of the hot path when unconfigured.
+    const { sendToOwner } = await import("@/lib/fcm");
+    await sendToOwner(result.ownerId, {
+      title: result.title,
+      body,
+      data: { listingId, step: String(result.progress.step), type: "progress" },
+    });
+  }
 }

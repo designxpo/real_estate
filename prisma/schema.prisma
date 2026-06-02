@@ -852,8 +852,24 @@ model Owner {
 
   listings MarketplaceListing[]
   sessions OwnerSession[]
+  devices  OwnerDevice[]
 
   @@map("owners")
+}
+
+// FCM device tokens for owner push notifications (one row per device).
+model OwnerDevice {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  token     String   @unique
+  platform  String   @default("android")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("owner_devices")
 }
 
 // Long-lived refresh tokens for owners (mobile bearer-token auth). Only the

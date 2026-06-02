@@ -22,3 +22,6 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase admin credentials (never commit)
+firebase-service-account.json
