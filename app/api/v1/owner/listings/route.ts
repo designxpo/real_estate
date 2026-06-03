@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { ownerListingCreateSchema } from "@/lib/owner-validators";
 import { serializeListing } from "@/lib/owner-listing";
 import { ok, fail, preflight, withOwner } from "@/lib/owner-api";
+import { logListingActivity } from "@/lib/listing-activity";
 
 export function OPTIONS() {
   return preflight();
@@ -12,7 +13,11 @@ export async function GET(req: Request) {
   return withOwner(req, async (owner) => {
     const listings = await prisma.marketplaceListing.findMany({
       where: { ownerId: owner.id },
-      include: { photos: true },
+      include: {
+        photos: true,
+        managedByFirm: { select: { id: true, name: true } },
+        managedByUser: { select: { id: true, name: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
     return ok({ listings: listings.map(serializeListing) });
@@ -58,6 +63,13 @@ export async function POST(req: Request) {
         moderation: "pending_review",
       },
       include: { photos: true },
+    });
+    await logListingActivity({
+      listingId: listing.id,
+      actorType: "owner",
+      actorName: owner.name,
+      action: "created",
+      detail: "Listing created by owner",
     });
     return ok(serializeListing(listing), 201);
   });

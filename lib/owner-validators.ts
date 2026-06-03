@@ -66,6 +66,23 @@ export const ownerListingUpdateSchema = z
   })
   .partial();
 
+// Broker-portal: create a managed listing on behalf of an owner. The broker
+// supplies the owner's contact (an Owner account is found-or-created by phone)
+// plus the full listing. May go live immediately (status: "active").
+export const brokerManagedListingCreateSchema = z.object({
+  owner: z.object({
+    name: z.string().min(1).max(120),
+    phone: phoneSchema,
+    email: z.string().email().optional().or(z.literal("")),
+  }),
+  listing: z.object({
+    ...listingCore,
+    status: z.enum(["draft", "active"]).optional(),
+  }),
+});
+
+export type BrokerManagedListingCreateInput = z.infer<typeof brokerManagedListingCreateSchema>;
+
 export const photoPresignSchema = z.object({
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
 });

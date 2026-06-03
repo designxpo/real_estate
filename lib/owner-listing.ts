@@ -16,7 +16,11 @@ export function makeListingSlug(title: string): string {
   return `${base}-${randomBytes(3).toString("hex")}`;
 }
 
-type ListingWithPhotos = MarketplaceListing & { photos?: MarketplaceListingPhoto[] };
+type ListingWithPhotos = MarketplaceListing & {
+  photos?: MarketplaceListingPhoto[];
+  managedByFirm?: { id: string; name: string } | null;
+  managedByUser?: { id: string; name: string } | null;
+};
 
 // Decimal fields come back as Prisma.Decimal; coerce to number for JSON.
 function num(d: unknown): number | null {
@@ -53,6 +57,10 @@ export function serializeListing(l: ListingWithPhotos) {
     status: l.status,
     moderation: l.moderation,
     publicSlug: l.publicSlug,
+    // Present when a broker firm manages this listing on the owner's behalf.
+    managedBy: l.managedByFirm
+      ? { firmId: l.managedByFirm.id, firmName: l.managedByFirm.name, brokerName: l.managedByUser?.name ?? null }
+      : null,
     photos: (l.photos ?? [])
       .sort((a, b) => a.position - b.position)
       .map((p) => ({ id: p.id, url: p.url, caption: p.caption, position: p.position })),

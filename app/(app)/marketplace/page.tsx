@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth";
 import { formatINR } from "@/lib/utils";
@@ -41,7 +42,15 @@ export default async function MarketplacePage({
       <div>
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
-          <MarketplaceLive />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/marketplace/managed"
+              className="text-sm px-3 py-1.5 rounded-inner border border-line text-ink-muted hover:text-ink hover:border-accent/60"
+            >
+              Manage for an owner →
+            </Link>
+            <MarketplaceLive />
+          </div>
         </div>
         <p className="text-sm text-ink-muted">Owner-listed properties. Unlock to get the owner’s contact.</p>
       </div>

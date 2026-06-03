@@ -3,16 +3,23 @@ import { ownerListingUpdateSchema } from "@/lib/owner-validators";
 import { serializeListing, makeListingSlug } from "@/lib/owner-listing";
 import { ok, fail, preflight, withOwner } from "@/lib/owner-api";
 import { emitMarketplaceChange } from "@/lib/realtime";
+import { logListingActivity, describeChanges } from "@/lib/listing-activity";
 import type { Prisma } from "@prisma/client";
 
 export function OPTIONS() {
   return preflight();
 }
 
+const detailInclude = {
+  photos: true,
+  managedByFirm: { select: { id: true, name: true } },
+  managedByUser: { select: { id: true, name: true } },
+} as const;
+
 async function ownedListing(ownerId: string, id: string) {
   const listing = await prisma.marketplaceListing.findUnique({
     where: { id },
-    include: { photos: true },
+    include: detailInclude,
   });
   if (!listing || listing.ownerId !== ownerId) return null;
   return listing;
@@ -64,19 +71,39 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       }
     }
 
+    const statusChanged = d.status !== undefined && d.status !== existing.status;
     const updated = await prisma.marketplaceListing.update({
       where: { id },
       data,
-      include: { photos: true },
+      include: detailInclude,
     });
 
-    // Push a real-time event to brokers when status/visibility changed.
-    if (d.status !== undefined && d.status !== existing.status) {
+    // Record both kinds of change in the shared timeline (broker sees these in
+    // the portal). Only meaningful for managed listings, but harmless otherwise.
+    if (statusChanged) {
+      await logListingActivity({
+        listingId: id,
+        actorType: "owner",
+        actorName: owner.name,
+        action: "status_change",
+        detail: `Status ${existing.status} → ${updated.status} (by owner)`,
+      });
+      // Push a real-time event to brokers when status/visibility changed.
       emitMarketplaceChange({
         listingId: id,
         status: updated.status,
         moderation: updated.moderation,
         action: "status_change",
+      });
+    }
+    const changeDetail = describeChanges(existing as unknown as Record<string, unknown>, d as Record<string, unknown>);
+    if (changeDetail) {
+      await logListingActivity({
+        listingId: id,
+        actorType: "owner",
+        actorName: owner.name,
+        action: "updated",
+        detail: `${changeDetail} (by owner)`,
       });
     }
     return ok(serializeListing(updated));

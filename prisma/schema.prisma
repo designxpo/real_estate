@@ -249,6 +249,7 @@ model Firm {
   waMessages        WaMessage[]
   notifications     Notification[]
   activityLog       ActivityLog[]
+  managedListings   MarketplaceListing[] @relation("FirmManagedListings")
 
   @@map("firms")
 }
@@ -280,6 +281,7 @@ model User {
   ownedProperties   Property[]          @relation("PropertyLandlord")
   magicLinks        MagicLink[]
   statusChanges     PropertyStatusLog[] @relation("StatusChangedBy")
+  managedListings   MarketplaceListing[] @relation("UserManagedListings")
 
   @@index([firmId])
   @@map("users")
@@ -897,6 +899,12 @@ model MarketplaceListing {
   id      String @id @default(cuid())
   ownerId String @map("owner_id")
 
+  // Broker-managed listings (B2B2C): a firm lists/manages on behalf of the owner.
+  // Null = owner self-listed. Both the owner (app) and the managing broker (portal)
+  // can edit; every change is recorded in ListingActivityLog, visible to both.
+  managedByFirmId String? @map("managed_by_firm_id")
+  managedByUserId String? @map("managed_by_user_id")
+
   listingType  ListingType  @map("listing_type")
   propertyType PropertyType @map("property_type")
   title        String
@@ -931,14 +939,36 @@ model MarketplaceListing {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  owner   Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  photos  MarketplaceListingPhoto[]
-  unlocks ListingUnlock[]
-  leads   Lead[]                    @relation("ListingLeads")
+  owner         Owner                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  managedByFirm Firm?                     @relation("FirmManagedListings", fields: [managedByFirmId], references: [id], onDelete: SetNull)
+  managedByUser User?                     @relation("UserManagedListings", fields: [managedByUserId], references: [id], onDelete: SetNull)
+  photos        MarketplaceListingPhoto[]
+  unlocks       ListingUnlock[]
+  leads         Lead[]                    @relation("ListingLeads")
+  activity      ListingActivityLog[]
 
   @@index([ownerId])
+  @@index([managedByFirmId])
   @@index([city, moderation, status])
   @@map("marketplace_listings")
+}
+
+// Shared, append-only history for a marketplace listing — visible to BOTH the
+// owner (app) and the managing broker (portal). Records who changed what.
+model ListingActivityLog {
+  id        String   @id @default(cuid())
+  listingId String   @map("listing_id")
+  actorType String   @map("actor_type") // "owner" | "broker"
+  actorName String   @map("actor_name") // display-name snapshot (firm/owner/broker)
+  action    String // "created" | "updated" | "status_change" | "photo_added" | "photo_removed"
+  detail    String? // human-readable summary, e.g. "Price 45L → 48L"
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@map("listing_activity_log")
 }
 
 // Records that a broker (firm) unlocked an owner listing's contact — the
