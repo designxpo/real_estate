@@ -30,7 +30,7 @@ export async function getChecklist(firmId: string): Promise<ChecklistItem[]> {
       label: "Add your first property",
       href: "/properties/new",
       done: propCount > 0,
-      why: "Properties are what you list to portals and what leads attach to.",
+      why: "Properties are your inventory — what you market and what leads attach to.",
     },
     {
       id: "contact",

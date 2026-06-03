@@ -7,8 +7,6 @@ import { propertyVisibility } from "@/lib/scope";
 import { formatINR } from "@/lib/utils";
 import { buildShareText } from "@/lib/share";
 import { ShareCard } from "@/components/share-card";
-import { ALL_PORTALS, getAdapter } from "@/lib/portals";
-import { SyndicationPanel } from "@/components/syndication-panel";
 import { LandlordActivationPanel } from "@/components/landlord-activation-panel";
 import { PropertyDetail, type PropertyView } from "@/components/property-detail";
 import { CopyButton } from "@/components/copy-button";
@@ -29,7 +27,6 @@ export default async function PropertyDetailPage({
       listedBy: { select: { name: true, phone: true } },
       ownerContact: { select: { name: true, phone: true } },
       landlord: { select: { name: true, phone: true } },
-      listingTargets: true,
       firm: true,
     },
   });
@@ -119,26 +116,6 @@ export default async function PropertyDetailPage({
           <ShareCard shareText={shareText} publicUrl={publicUrl} />
         </div>
       }
-    >
-      <section>
-        <h2 className="text-lg font-semibold text-ink mb-3">Syndication</h2>
-        <SyndicationPanel
-          propertyId={property.id}
-          checks={ALL_PORTALS.map((p) => {
-            const adapter = getAdapter(p.id);
-            const v = adapter ? adapter.validate(property) : { ok: false, warnings: [], errors: ["No adapter"] };
-            return { portal: p.id, displayName: p.displayName, validation: v };
-          })}
-          initialTargets={property.listingTargets.map((t) => ({
-            portal: t.portal,
-            status: t.status,
-            lastRefreshedAt: t.lastRefreshedAt ? t.lastRefreshedAt.toISOString() : null,
-            nextRefreshAt: t.nextRefreshAt ? t.nextRefreshAt.toISOString() : null,
-            refreshCount: t.refreshCount,
-            refreshIntervalDays: t.refreshIntervalDays,
-          }))}
-        />
-      </section>
-    </PropertyDetail>
+    />
   );
 }

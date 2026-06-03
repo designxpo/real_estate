@@ -2,9 +2,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth";
 import { CopyButton } from "@/components/copy-button";
-import { ALL_PORTALS, getAdapter } from "@/lib/portals";
 import Link from "next/link";
-import { PortalCredentialsPanel } from "@/components/portal-credentials-panel";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { DemoDataPanel } from "@/components/demo-data-panel";
 import { TeamPanel } from "@/components/team-panel";
@@ -97,35 +95,6 @@ export default async function SettingsPage() {
   }'`}</pre>
         </details>
       </Card>
-
-      <Card>
-        <div className="mb-3">
-          <h2 className="font-semibold">Portal feed URLs</h2>
-          <p className="text-sm text-ink-muted">
-            Each portal pulls listings from a unique URL on their own cadence. No push needed.
-          </p>
-        </div>
-        <div className="rounded-inner border border-line divide-y divide-line">
-          {ALL_PORTALS.map((p) => {
-            const adapter = getAdapter(p.id);
-            const ext = adapter?.fileExtension() ?? "xml";
-            const slug =
-              p.id === "ninetynine_acres" ? "99acres" : p.id === "custom_csv" ? "custom" : p.id;
-            const url = `${proto}://${host}/feeds/${firm?.webhookToken}/${slug}.${ext}`;
-            return (
-              <div key={p.id} className="p-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-ink">{p.displayName}</div>
-                  <code className="text-xs text-ink-faint break-all">{url}</code>
-                </div>
-                <CopyButton text={url} />
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <PortalCredentialsPanel />
 
       {canSeeAllInFirm(user.role) && user.role !== "accounts" && <TeamPanel />}
 

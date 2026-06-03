@@ -149,38 +149,6 @@ enum InvoiceStatus {
   overdue
 }
 
-enum PortalId {
-  ninetynine_acres
-  magicbricks
-  housing
-  olx
-  custom_csv
-  custom_xml
-}
-
-enum ListingTargetStatus {
-  pending
-  posted
-  refreshed
-  failed
-  expired
-  disabled
-}
-
-enum PortalJobKind {
-  post
-  refresh
-  delete
-  fetch_leads
-}
-
-enum PortalJobStatus {
-  queued
-  running
-  success
-  failed
-}
-
 enum WaMessageDirection {
   outbound
   inbound
@@ -254,10 +222,6 @@ model Firm {
   deals             Deal[]
   invoices          Invoice[]
   invoiceCounters   InvoiceCounter[]
-  listingTargets    ListingTarget[]
-  portalConfigs     PortalConfig[]
-  portalCredentials PortalCredential[]
-  portalJobs        PortalJob[]
   waTemplates       WaTemplate[]
   waMessages        WaMessage[]
   notifications     Notification[]
@@ -440,7 +404,6 @@ model Property {
   leads          Lead[]              @relation("LeadProperty")
   siteVisits     SiteVisit[]         @relation("SiteVisitProperty")
   deals          Deal[]              @relation("DealProperty")
-  listingTargets ListingTarget[]
   waMessages     WaMessage[]         @relation("WaMessageProperty")
   statusLogs     PropertyStatusLog[]
   magicLinks     MagicLink[]
@@ -691,94 +654,6 @@ model InvoiceCounter {
 
   @@unique([firmId, fy])
   @@map("invoice_counters")
-}
-
-model ListingTarget {
-  id                  String              @id @default(cuid())
-  firmId              String              @map("firm_id")
-  propertyId          String              @map("property_id")
-  portal              PortalId
-  status              ListingTargetStatus @default(pending)
-  externalListingId   String?             @map("external_listing_id")
-  postedAt            DateTime?           @map("posted_at")
-  lastRefreshedAt     DateTime?           @map("last_refreshed_at")
-  nextRefreshAt       DateTime?           @map("next_refresh_at")
-  refreshCount        Int                 @default(0) @map("refresh_count")
-  refreshIntervalDays Int                 @default(5) @map("refresh_interval_days")
-  errorMessage        String?             @map("error_message")
-  portalFields        Json?               @map("portal_fields")
-  createdAt           DateTime            @default(now()) @map("created_at")
-  updatedAt           DateTime            @updatedAt @map("updated_at")
-
-  firm     Firm     @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@unique([propertyId, portal])
-  @@index([firmId, portal])
-  @@index([nextRefreshAt])
-  @@map("listing_targets")
-}
-
-model PortalConfig {
-  id        String   @id @default(cuid())
-  firmId    String   @map("firm_id")
-  portal    PortalId
-  enabled   Boolean  @default(true)
-  // Portal-specific tweaks (e.g. broker_id assigned by the portal partnership team)
-  config    Json?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-
-  @@unique([firmId, portal])
-  @@map("portal_configs")
-}
-
-// Phase 6: credentials for portal API adapters. Token/secret fields are stored
-// AES-GCM encrypted (see lib/crypto.ts) — only the cipher blob is in this column.
-model PortalCredential {
-  id              String    @id @default(cuid())
-  firmId          String    @map("firm_id")
-  portal          PortalId
-  // ciphertext from lib/crypto.ts encrypt() — base64 of iv|tag|data
-  apiKeyCipher    String?   @map("api_key_cipher")
-  apiSecretCipher String?   @map("api_secret_cipher")
-  brokerCode      String?   @map("broker_code") // portal-issued ID, not secret
-  baseUrl         String?   @map("base_url")
-  notes           String?
-  lastUsedAt      DateTime? @map("last_used_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-
-  @@unique([firmId, portal])
-  @@map("portal_credentials")
-}
-
-// Phase 6: async job log for API-mode adapters (post / refresh / fetch_leads).
-model PortalJob {
-  id                String          @id @default(cuid())
-  firmId            String          @map("firm_id")
-  portal            PortalId
-  kind              PortalJobKind
-  status            PortalJobStatus @default(queued)
-  targetId          String?         @map("target_id") // ListingTarget.id for post/refresh/delete
-  externalListingId String?         @map("external_listing_id")
-  payload           Json?
-  responseBody      String?         @map("response_body")
-  errorMessage      String?         @map("error_message")
-  attempts          Int             @default(0)
-  scheduledAt       DateTime        @default(now()) @map("scheduled_at")
-  startedAt         DateTime?       @map("started_at")
-  finishedAt        DateTime?       @map("finished_at")
-
-  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
-
-  @@index([firmId, status])
-  @@index([scheduledAt])
-  @@map("portal_jobs")
 }
 
 // Phase 7: WhatsApp Business API templates (must mirror Meta-approved templates).
