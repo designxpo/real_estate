@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
@@ -36,10 +37,23 @@ export default function LoginPage() {
           </div>
 
           {tab === "otp" ? <OtpForm router={router} /> : <PasswordForm router={router} />}
+
+          <div className="flex items-center gap-3 text-xs text-ink-faint">
+            <div className="flex-1 h-px bg-line" /> or <div className="flex-1 h-px bg-line" />
+          </div>
+          <a
+            href="/api/auth/google/start"
+            className="flex items-center justify-center gap-2 w-full h-11 rounded-full border border-line text-ink font-medium hover:bg-hover transition-colors"
+          >
+            <span className="text-lg">G</span> Continue with Google
+          </a>
         </Card>
 
-        <p className="text-center text-xs text-ink-faint mt-4">
-          Brokers &amp; staff sign in here. Property owners use the secure link sent by their broker.
+        <p className="text-center text-sm text-ink-muted mt-4">
+          New brokerage? <Link href="/signup" className="text-accent hover:underline">Create an account</Link>
+        </p>
+        <p className="text-center text-xs text-ink-faint mt-2">
+          Property owners use the mobile app, not this portal.
         </p>
       </div>
     </div>
@@ -176,7 +190,7 @@ function OtpForm({ router }: { router: RouterLike }) {
 }
 
 function PasswordForm({ router }: { router: RouterLike }) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -188,12 +202,12 @@ function PasswordForm({ router }: { router: RouterLike }) {
     const res = await fetch("/api/auth/password/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     setBusy(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setErr(typeof j.error === "string" ? j.error : "Invalid email or password");
+      setErr(typeof j.error === "string" ? j.error : "Invalid credentials");
       return;
     }
     const j = await res.json();
@@ -204,15 +218,14 @@ function PasswordForm({ router }: { router: RouterLike }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       {err && <ErrorBox>{err}</ErrorBox>}
-      <Field label="Email" required>
+      <Field label="Email or phone" required>
         <Input
-          type="email"
-          inputMode="email"
+          type="text"
           required
-          autoComplete="email"
-          placeholder="you@firm.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
+          placeholder="you@firm.com or +91…"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
         />
       </Field>
       <Field label="Password" required>

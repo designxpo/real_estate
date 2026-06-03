@@ -17,6 +17,48 @@ export const otpVerifySchema = z.object({
   firmName: z.string().min(1).max(200).optional(),
 });
 
+// Indian PAN: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F). Optional fields
+// validate format only when a non-empty value is supplied (progressive KYC).
+const panSchema = z
+  .string()
+  .regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/i, "Invalid PAN (e.g. ABCDE1234F)")
+  .optional()
+  .or(z.literal(""));
+
+const gstSchema = z
+  .string()
+  .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/i, "Invalid GSTIN")
+  .optional()
+  .or(z.literal(""));
+
+// Rich broker signup — account + firm legal/KYC details (India). Most KYC is
+// optional at signup (progressive verification); password + identity required.
+export const brokerSignupSchema = z.object({
+  // Account
+  name: z.string().min(2).max(120),
+  email: z.string().email(),
+  phone: phoneSchema,
+  password: z.string().min(8, "Use at least 8 characters").max(200),
+  // Firm
+  firmName: z.string().min(2).max(200),
+  firmType: z.enum(["proprietorship", "partnership", "llp", "pvt_ltd", "individual_agent"]).optional(),
+  reraNumber: z.string().max(60).optional().or(z.literal("")),
+  reraAuthority: z.string().max(120).optional().or(z.literal("")),
+  panNumber: panSchema,
+  gstNumber: gstSchema,
+  address: z.string().max(400).optional().or(z.literal("")),
+  city: z.string().max(120).optional().or(z.literal("")),
+  state: z.string().max(120).optional().or(z.literal("")),
+  pincode: z.string().regex(/^\d{6}$/, "6-digit pincode").optional().or(z.literal("")),
+  website: z.string().url("Invalid URL").optional().or(z.literal("")),
+});
+
+// Sign in with email OR phone + password.
+export const passwordLoginSchema = z.object({
+  identifier: z.string().min(3).max(200),
+  password: z.string().min(1).max(200),
+});
+
 export const contactCreateSchema = z.object({
   name: z.string().min(1).max(120),
   phone: phoneSchema,

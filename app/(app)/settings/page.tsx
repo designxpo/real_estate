@@ -39,26 +39,56 @@ export default async function SettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="font-semibold mb-3">Firm</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Firm &amp; KYC</h2>
+          {(() => {
+            const s = firm?.verificationStatus ?? "pending";
+            const map: Record<string, string> = {
+              verified: "bg-normal-soft text-normal",
+              pending: "bg-high-soft text-high",
+              rejected: "bg-urgent-soft text-urgent",
+            };
+            const label = s === "verified" ? "✓ Verified" : s === "rejected" ? "Verification rejected" : "Verification pending";
+            return <span className={`text-xs px-2.5 py-1 rounded-full ${map[s] ?? map.pending}`}>{label}</span>;
+          })()}
+        </div>
         <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
           <dt className="text-ink-faint">Name</dt>
           <dd className="text-ink">{firm?.name}</dd>
-          {firm?.city && (
+          {firm?.firmType && (
             <>
-              <dt className="text-ink-faint">City</dt>
-              <dd className="text-ink">{firm.city}{firm.state ? `, ${firm.state}` : ""}</dd>
+              <dt className="text-ink-faint">Type</dt>
+              <dd className="text-ink capitalize">{firm.firmType.replace(/_/g, " ")}</dd>
+            </>
+          )}
+          {(firm?.city || firm?.address) && (
+            <>
+              <dt className="text-ink-faint">Address</dt>
+              <dd className="text-ink">{[firm.address, firm.city, firm.state, firm.pincode].filter(Boolean).join(", ")}</dd>
             </>
           )}
           {firm?.reraNumber && (
             <>
               <dt className="text-ink-faint">RERA</dt>
-              <dd className="text-ink font-mono text-xs">{firm.reraNumber}</dd>
+              <dd className="text-ink font-mono text-xs">{firm.reraNumber}{firm.reraAuthority ? ` · ${firm.reraAuthority}` : ""}</dd>
+            </>
+          )}
+          {firm?.panNumber && (
+            <>
+              <dt className="text-ink-faint">PAN</dt>
+              <dd className="text-ink font-mono text-xs">{firm.panNumber}</dd>
             </>
           )}
           {firm?.gstNumber && (
             <>
               <dt className="text-ink-faint">GSTIN</dt>
               <dd className="text-ink font-mono text-xs">{firm.gstNumber}</dd>
+            </>
+          )}
+          {firm?.website && (
+            <>
+              <dt className="text-ink-faint">Website</dt>
+              <dd className="text-ink text-xs truncate">{firm.website}</dd>
             </>
           )}
           {firm?.invoicePrefix && (
@@ -68,6 +98,7 @@ export default async function SettingsPage() {
             </>
           )}
         </dl>
+        <Link href="/settings/firm" className="inline-block mt-3 text-sm text-accent hover:underline">Edit firm &amp; KYC →</Link>
       </Card>
 
       {demoCount > 0 && <DemoDataPanel demoCount={demoCount} />}

@@ -195,14 +195,24 @@ enum BookingStatus {
 model Firm {
   id            String    @id @default(cuid())
   name          String
+  // Legal / KYC (India). Captured at signup; verified progressively.
+  firmType      String?   @map("firm_type") // proprietorship | partnership | llp | pvt_ltd | individual_agent
   reraNumber    String?   @map("rera_number")
+  reraAuthority String?   @map("rera_authority") // e.g. MahaRERA, K-RERA
+  reraValidTill DateTime? @map("rera_valid_till")
+  panNumber     String?   @map("pan_number") // firm/individual PAN
   gstNumber     String?   @map("gst_number")
   invoicePrefix String?   @map("invoice_prefix") // e.g. "SR" → SR/2627/0001
   address       String?
   city          String?
   state         String? // For GST CGST+SGST vs IGST determination
   pincode       String?
+  website       String?
+  about         String?
   logoUrl       String?   @map("logo_url")
+  // Progressive verification: pending → verified → rejected (badge, not a gate).
+  verificationStatus String    @default("pending") @map("verification_status")
+  verifiedAt         DateTime? @map("verified_at")
   ownerUserId   String?   @map("owner_user_id")
   webhookToken  String    @unique @default(cuid()) @map("webhook_token")
   // Phase 9: onboarding state
@@ -263,6 +273,10 @@ model User {
   role                 Role     @default(sub_broker)
   // Optional email/password login (alongside phone-OTP). Null until set.
   passwordHash         String?  @map("password_hash")
+  // Google sign-in linkage (set when the user authenticates via Google).
+  googleId             String?  @unique @map("google_id")
+  photoUrl             String?  @map("photo_url")
+  panNumber            String?  @map("pan_number") // individual broker PAN
   commissionDefaultPct Decimal? @map("commission_default_pct") @db.Decimal(5, 2)
   createdAt            DateTime @default(now()) @map("created_at")
 
