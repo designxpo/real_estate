@@ -28,21 +28,36 @@ export default {
         },
         accent: {
           DEFAULT: "var(--accent-primary)",
-          glow: "#22D3EE",
+          hover: "var(--accent-hover)",
+          soft: "var(--accent-soft)",
+          glow: "var(--gold)",
         },
-        positive: "#22C55E",
-        negative: "#EF4444",
-        warn: "#F59E0B",
+        gold: {
+          DEFAULT: "var(--gold)",
+          soft: "var(--gold-soft)",
+        },
+        // Status colours (paired text / -soft tint): e.g. text-urgent bg-urgent-soft
+        urgent: { DEFAULT: "var(--urgent)", soft: "var(--urgent-soft)" },
+        high: { DEFAULT: "var(--high)", soft: "var(--high-soft)" },
+        normal: { DEFAULT: "var(--normal)", soft: "var(--normal-soft)" },
+        info: "var(--info)",
+        positive: "var(--success)",
+        negative: "var(--urgent)",
+        warn: "var(--high)",
         // Legacy aliases kept so old `bg-brand` / `text-brand-accent` keep compiling
-        brand: { DEFAULT: "var(--accent-primary)", accent: "#22D3EE" },
+        brand: { DEFAULT: "var(--accent-primary)", accent: "var(--gold)" },
       },
       borderRadius: {
         app: "28px",
         card: "20px",
         inner: "14px",
+        sm: "8px",
+        md: "14px",
+        lg: "20px",
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ['"Hanken Grotesk"', "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ['"Fraunces"', "Georgia", "serif"],
       },
       boxShadow: {
         card: "var(--shadow-card)",

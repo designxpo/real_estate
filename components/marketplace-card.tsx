@@ -79,18 +79,20 @@ export function MarketplaceCard({
   }
 
   return (
-    <div className="bg-surface border border-line rounded-lg overflow-hidden flex flex-col">
-      {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt={title} className="h-36 w-full object-cover" />
-      ) : (
-        <div className="h-36 w-full bg-surface-2 flex items-center justify-center text-ink-faint text-xs">No photo</div>
-      )}
+    <div className="bg-surface border border-line rounded-lg overflow-hidden flex flex-col transition-shadow hover:shadow-card">
+      <Link href={`/listings/${id}`} className="block">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt={title} className="h-36 w-full object-cover" />
+        ) : (
+          <div className="h-36 w-full bg-surface-2 flex items-center justify-center text-ink-faint text-xs">No photo</div>
+        )}
+      </Link>
       <div className="p-3 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
-          <div className="font-medium text-ink text-sm">{title}</div>
+          <Link href={`/listings/${id}`} className="font-medium text-ink text-sm hover:text-accent">{title}</Link>
           {ownerVerified && (
-            <span className="text-[10px] text-emerald-300 border border-emerald-500/40 rounded-full px-1.5 py-0.5">✓ verified</span>
+            <span className="text-[10px] text-success border border-success/40 rounded-full px-1.5 py-0.5">✓ verified</span>
           )}
         </div>
         <div className="text-accent text-sm font-semibold mt-0.5">{priceLabel}</div>

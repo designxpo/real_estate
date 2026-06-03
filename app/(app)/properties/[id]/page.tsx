@@ -10,6 +10,8 @@ import { ShareCard } from "@/components/share-card";
 import { ALL_PORTALS, getAdapter } from "@/lib/portals";
 import { SyndicationPanel } from "@/components/syndication-panel";
 import { LandlordActivationPanel } from "@/components/landlord-activation-panel";
+import { PropertyDetail, type PropertyView } from "@/components/property-detail";
+import { CopyButton } from "@/components/copy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -64,109 +66,79 @@ export default async function PropertyDetailPage({
     baseUrl
   );
 
+  const specs: { label: string; value: string }[] = [];
+  if (property.bhk) specs.push({ label: "Config", value: `${property.bhk} BHK` });
+  specs.push({ label: "Type", value: property.propertyType });
+  specs.push({ label: "Listing", value: property.listingType });
+  if (property.carpetSqft) specs.push({ label: "Carpet area", value: `${property.carpetSqft.toLocaleString("en-IN")} sqft` });
+  if (property.floor != null) specs.push({ label: "Floor", value: `${property.floor}/${property.totalFloors ?? "?"}` });
+  if (property.facing) specs.push({ label: "Facing", value: property.facing });
+  if (property.furnishing) specs.push({ label: "Furnishing", value: property.furnishing });
+
+  const availability: { label: string; value: string }[] = [];
+  if (property.availableFrom) availability.push({ label: "Available from", value: new Date(property.availableFrom).toLocaleDateString("en-IN") });
+  if (property.ageYears != null) availability.push({ label: "Age", value: `${property.ageYears} yrs` });
+
+  const view: PropertyView = {
+    kind: "property",
+    title: property.title,
+    breadcrumb: { city: property.city, locality: property.locality },
+    statusLabel: property.status,
+    statusTone: "muted",
+    photos: property.photos.map((p) => p.url),
+    description: property.description,
+    specs,
+    availability,
+    amenities: property.amenities,
+    rera: property.reraId ? { id: property.reraId } : null,
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <Link href="/properties" className="text-sm text-ink-muted hover:text-ink">
-          ← Properties
-        </Link>
-        <h1 className="text-2xl font-semibold mt-1">{property.title}</h1>
-        <div className="text-ink-muted">
-          {[property.locality, property.city, property.state].filter(Boolean).join(", ")}
-        </div>
-      </div>
-
-      {property.photos.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {property.photos.map((ph) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={ph.id}
-              src={ph.url}
-              alt={ph.caption ?? property.title}
-              className="aspect-square object-cover rounded-md bg-fill"
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="bg-surface rounded-lg border border-line p-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-        <Info label="Price" value={formatINR(property.priceAmount.toString(), property.priceUnit)} />
-        <Info label="Listing" value={property.listingType} />
-        <Info label="Type" value={property.propertyType} />
-        <Info label="BHK" value={property.bhk ?? "—"} />
-        <Info label="Carpet" value={property.carpetSqft ? `${property.carpetSqft} sqft` : "—"} />
-        <Info label="Furnishing" value={property.furnishing ?? "—"} />
-        <Info label="Floor" value={property.floor != null ? `${property.floor}/${property.totalFloors ?? "?"}` : "—"} />
-        <Info label="Facing" value={property.facing ?? "—"} />
-        <Info label="Status" value={property.status} />
-      </div>
-
-      <LandlordActivationPanel
-        propertyId={property.id}
-        status={property.status}
-        landlord={property.landlord ? { name: property.landlord.name, phone: property.landlord.phone } : null}
-      />
-
-      <ShareCard shareText={shareText} publicUrl={publicUrl} />
-
-      <SyndicationPanel
-        propertyId={property.id}
-        checks={ALL_PORTALS.map((p) => {
-          const adapter = getAdapter(p.id);
-          const v = adapter
-            ? adapter.validate(property)
-            : { ok: false, warnings: [], errors: ["No adapter"] };
-          return { portal: p.id, displayName: p.displayName, validation: v };
-        })}
-        initialTargets={property.listingTargets.map((t) => ({
-          portal: t.portal,
-          status: t.status,
-          lastRefreshedAt: t.lastRefreshedAt ? t.lastRefreshedAt.toISOString() : null,
-          nextRefreshAt: t.nextRefreshAt ? t.nextRefreshAt.toISOString() : null,
-          refreshCount: t.refreshCount,
-          refreshIntervalDays: t.refreshIntervalDays,
-        }))}
-      />
-
-      {property.description && (
-        <div className="bg-surface rounded-lg border border-line p-4">
-          <h2 className="text-sm font-medium text-ink-muted mb-2">Description</h2>
-          <p className="whitespace-pre-wrap text-sm">{property.description}</p>
-        </div>
-      )}
-
-      {property.amenities.length > 0 && (
-        <div className="bg-surface rounded-lg border border-line p-4">
-          <h2 className="text-sm font-medium text-ink-muted mb-2">Amenities</h2>
-          <div className="flex flex-wrap gap-2">
-            {property.amenities.map((a) => (
-              <span key={a} className="text-xs bg-fill text-ink rounded-full px-2 py-1">
-                {a}
-              </span>
-            ))}
+    <PropertyDetail
+      view={view}
+      headerActions={publicUrl ? <CopyButton text={publicUrl} label="Share link" /> : undefined}
+      aside={
+        <div className="space-y-4">
+          <div className="rounded-lg border border-line bg-surface shadow-card p-5">
+            <div className="text-2xl font-semibold text-ink tabular-nums">
+              {formatINR(property.priceAmount.toString(), property.priceUnit)}
+            </div>
+            {property.negotiable && <div className="text-sm text-ink-muted">Negotiable</div>}
+            <div className="mt-3 text-sm text-ink-soft border-t border-line pt-3">
+              <span className="text-ink-muted">Listed by </span>{property.listedBy.name}
+              {property.ownerContact && (
+                <div className="text-ink-muted mt-1">Owner: {property.ownerContact.name} · {property.ownerContact.phone}</div>
+              )}
+            </div>
           </div>
+          <LandlordActivationPanel
+            propertyId={property.id}
+            status={property.status}
+            landlord={property.landlord ? { name: property.landlord.name, phone: property.landlord.phone } : null}
+          />
+          <ShareCard shareText={shareText} publicUrl={publicUrl} />
         </div>
-      )}
-
-      <div className="bg-surface rounded-lg border border-line p-4 text-sm space-y-1">
-        <div><span className="text-ink-muted">Listed by: </span>{property.listedBy.name}</div>
-        {property.ownerContact && (
-          <div>
-            <span className="text-ink-muted">Owner: </span>
-            {property.ownerContact.name} ({property.ownerContact.phone})
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-ink-muted">{label}</div>
-      <div className="font-medium capitalize">{value}</div>
-    </div>
+      }
+    >
+      <section>
+        <h2 className="text-lg font-semibold text-ink mb-3">Syndication</h2>
+        <SyndicationPanel
+          propertyId={property.id}
+          checks={ALL_PORTALS.map((p) => {
+            const adapter = getAdapter(p.id);
+            const v = adapter ? adapter.validate(property) : { ok: false, warnings: [], errors: ["No adapter"] };
+            return { portal: p.id, displayName: p.displayName, validation: v };
+          })}
+          initialTargets={property.listingTargets.map((t) => ({
+            portal: t.portal,
+            status: t.status,
+            lastRefreshedAt: t.lastRefreshedAt ? t.lastRefreshedAt.toISOString() : null,
+            nextRefreshAt: t.nextRefreshAt ? t.nextRefreshAt.toISOString() : null,
+            refreshCount: t.refreshCount,
+            refreshIntervalDays: t.refreshIntervalDays,
+          }))}
+        />
+      </section>
+    </PropertyDetail>
   );
 }

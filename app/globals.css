@@ -1,54 +1,79 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Dark is the default theme */
+/* Editorial-premium LIGHT is the default theme (spec §2): warm ivory paper,
+   deep ink text, one trustworthy green accent, warm-brass highlight. */
 :root,
+[data-theme="light"] {
+  --bg-app: #faf8f4; /* warm ivory paper */
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f2efe9; /* sunken / hover fills */
+  --bg-surface-3: #e9e4d9;
+  --text-primary: #16191c; /* ink */
+  --text-secondary: #4a4f55; /* ink-soft */
+  --text-tertiary: #898e94; /* ink-muted */
+  --accent-primary: #1e5b4f; /* deep trustworthy green */
+  --accent-hover: #174a40;
+  --accent-soft: #e3eeea;
+  --gold: #b98a2e; /* warm brass — premium / ratings */
+  --gold-soft: #f4ecdc;
+  --urgent: #c0392b;
+  --urgent-soft: #fbe9e7;
+  --high: #d98324;
+  --high-soft: #fbeedd;
+  --normal: #1e5b4f;
+  --normal-soft: #e3eeea;
+  --success: #2e7d5b;
+  --info: #2c5f8a;
+  --line: #e7e3da; /* hairline border */
+  --line-strong: #dad4c7;
+  --hover: rgba(22, 25, 28, 0.04);
+  --fill: rgba(22, 25, 28, 0.05);
+  --fill-strong: rgba(22, 25, 28, 0.09);
+  --desktop-grad: linear-gradient(135deg, #f2efe9 0%, #e7e3da 100%);
+  --shadow-card: 0 6px 24px rgba(22, 25, 28, 0.08);
+  --shadow-glow: 0 0 0 1px rgba(30, 91, 79, 0.25), 0 0 24px rgba(30, 91, 79, 0.15);
+  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(30, 91, 79, 0.12), transparent 70%);
+  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(185, 138, 46, 0.14), transparent 60%);
+  --bg-card-stroke: linear-gradient(180deg, rgba(22, 25, 28, 0.04) 0%, rgba(22, 25, 28, 0) 50%);
+}
+
+/* Optional dark theme — mirrors the tokens, keeps the green accent (spec §2.1). */
 [data-theme="dark"] {
-  --bg-app: #0b0c11;
-  --bg-surface: #121319;
-  --bg-surface-2: #181a22;
-  --bg-surface-3: #1e2029;
-  --text-primary: #f4f5f7;
-  --text-secondary: #9499a6;
-  --text-tertiary: #5b606d;
-  --accent-primary: #3b82f6;
-  /* Lines, hover fills, chip fills — alpha over the surface */
-  --line: rgba(255, 255, 255, 0.06);
-  --line-strong: rgba(255, 255, 255, 0.12);
+  --bg-app: #14110d;
+  --bg-surface: #1c1a16;
+  --bg-surface-2: #232019;
+  --bg-surface-3: #2b2720;
+  --text-primary: #f5f2ec;
+  --text-secondary: #b3ada1;
+  --text-tertiary: #807a6e;
+  --accent-primary: #4fb59e;
+  --accent-hover: #6ac6b0;
+  --accent-soft: rgba(79, 181, 158, 0.14);
+  --gold: #d6a852;
+  --gold-soft: rgba(214, 168, 82, 0.16);
+  --urgent: #e5705f;
+  --urgent-soft: rgba(229, 112, 95, 0.16);
+  --high: #e0a14f;
+  --high-soft: rgba(224, 161, 79, 0.16);
+  --normal: #4fb59e;
+  --normal-soft: rgba(79, 181, 158, 0.16);
+  --success: #5bbe8c;
+  --info: #6ba3d6;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
   --hover: rgba(255, 255, 255, 0.04);
   --fill: rgba(255, 255, 255, 0.06);
   --fill-strong: rgba(255, 255, 255, 0.1);
-  --desktop-grad: linear-gradient(135deg, #aeb8c4 0%, #7e8a99 100%);
-  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.4), 0 0 24px rgba(59, 130, 246, 0.35);
-  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(59, 130, 246, 0.35), transparent 70%);
-  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(34, 211, 238, 0.28), transparent 60%);
+  --desktop-grad: linear-gradient(135deg, #232019 0%, #14110d 100%);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 0 1px rgba(79, 181, 158, 0.4), 0 0 24px rgba(79, 181, 158, 0.3);
+  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(79, 181, 158, 0.3), transparent 70%);
+  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(214, 168, 82, 0.22), transparent 60%);
   --bg-card-stroke: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%);
-}
-
-[data-theme="light"] {
-  --bg-app: #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-surface-2: #f1f5f9;
-  --bg-surface-3: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --accent-primary: #2563eb;
-  --line: rgba(15, 23, 42, 0.08);
-  --line-strong: rgba(15, 23, 42, 0.15);
-  --hover: rgba(15, 23, 42, 0.04);
-  --fill: rgba(15, 23, 42, 0.05);
-  --fill-strong: rgba(15, 23, 42, 0.09);
-  --desktop-grad: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 1), 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.02);
-  --shadow-glow: 0 0 0 1px rgba(37, 99, 235, 0.2), 0 0 24px rgba(37, 99, 235, 0.15);
-  --bg-chart-bloom: radial-gradient(60% 80% at 70% 30%, rgba(37, 99, 235, 0.15), transparent 70%);
-  --bg-promo-glow: radial-gradient(120% 120% at 80% 20%, rgba(37, 99, 235, 0.1), transparent 60%);
-  --bg-card-stroke: linear-gradient(180deg, rgba(15, 23, 42, 0.04) 0%, rgba(15, 23, 42, 0) 50%);
 }
 
 html,
@@ -59,8 +84,14 @@ body {
 body {
   @apply bg-app text-ink antialiased;
   background-color: var(--bg-app);
-  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-  font-feature-settings: "tnum" 1, "ss01" 1;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Editorial serif for display/headings (spec §2.2). */
+h1, h2, h3, .font-display {
+  font-family: "Fraunces", Georgia, serif;
+  font-optical-sizing: auto;
 }
 
 /* Tabular figures on every numeric block */
@@ -98,8 +129,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(59, 130, 246, 0.6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: rgba(30, 91, 79, 0.6);
+  box-shadow: 0 0 0 3px rgba(30, 91, 79, 0.15);
 }
 
 /* Date picker icon — invert only in dark mode */
