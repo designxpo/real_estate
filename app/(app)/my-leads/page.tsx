@@ -76,7 +76,7 @@ export default async function MyLeadsPage() {
                       {isOverdue && <Pill tone="red" size="xs">overdue</Pill>}
                     </div>
                     <div className="text-xs text-ink-muted truncate">
-                      <a href={`tel:${l.contact.phone}`} className="hover:text-accent">{l.contact.phone}</a>
+                      <span>{l.contact.phone}</span>
                       {l.property ? ` · ${l.property.title}` : ""}
                     </div>
                   </div>
