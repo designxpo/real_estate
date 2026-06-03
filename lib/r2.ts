@@ -44,6 +44,8 @@ function client(): AwsClient {
 }
 
 const ALLOWED_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+// ID documents may also be PDFs.
+const DOC_CONTENT_TYPES = new Set([...ALLOWED_CONTENT_TYPES, "application/pdf"]);
 
 function extFor(contentType: string): string {
   switch (contentType) {
@@ -51,6 +53,8 @@ function extFor(contentType: string): string {
       return "png";
     case "image/webp":
       return "webp";
+    case "application/pdf":
+      return "pdf";
     default:
       return "jpg";
   }
@@ -64,23 +68,14 @@ export interface PresignedUpload {
   expiresIn: number;
 }
 
-// Build a presigned PUT for a single listing photo.
-export async function presignListingPhoto(
-  listingId: string,
-  contentType: string,
-): Promise<PresignedUpload> {
-  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-    throw new Error(`Unsupported content type: ${contentType}`);
-  }
+// Core: presign a PUT for an arbitrary object key.
+async function buildPresign(objectKey: string, contentType: string): Promise<PresignedUpload> {
   const accountId = env("R2_ACCOUNT_ID");
   const bucket = env("R2_BUCKET");
   const publicBase = env("R2_PUBLIC_BASE_URL").replace(/\/$/, "");
-  const objectKey = `listings/${listingId}/${randomBytes(12).toString("hex")}.${extFor(contentType)}`;
   const expiresIn = 600; // 10 minutes
 
-  const endpoint = new URL(
-    `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${objectKey}`,
-  );
+  const endpoint = new URL(`https://${accountId}.r2.cloudflarestorage.com/${bucket}/${objectKey}`);
   endpoint.searchParams.set("X-Amz-Expires", String(expiresIn));
 
   // signQuery: put the signature in the URL so the app can PUT with no auth headers.
@@ -90,11 +85,22 @@ export async function presignListingPhoto(
     aws: { signQuery: true },
   });
 
-  return {
-    uploadUrl: signed.url,
-    objectKey,
-    publicUrl: `${publicBase}/${objectKey}`,
-    contentType,
-    expiresIn,
-  };
+  return { uploadUrl: signed.url, objectKey, publicUrl: `${publicBase}/${objectKey}`, contentType, expiresIn };
+}
+
+// Build a presigned PUT for a single listing photo.
+export async function presignListingPhoto(listingId: string, contentType: string): Promise<PresignedUpload> {
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) throw new Error(`Unsupported content type: ${contentType}`);
+  return buildPresign(`listings/${listingId}/${randomBytes(12).toString("hex")}.${extFor(contentType)}`, contentType);
+}
+
+// Build a presigned PUT for an owner profile asset (photo or ID document).
+export async function presignOwnerAsset(
+  ownerId: string,
+  kind: "photo" | "id",
+  contentType: string,
+): Promise<PresignedUpload> {
+  const allowed = kind === "id" ? DOC_CONTENT_TYPES : ALLOWED_CONTENT_TYPES;
+  if (!allowed.has(contentType)) throw new Error(`Unsupported content type: ${contentType}`);
+  return buildPresign(`owners/${ownerId}/${kind}/${randomBytes(12).toString("hex")}.${extFor(contentType)}`, contentType);
 }

@@ -776,9 +776,24 @@ model Owner {
   name       String
   phone      String    @unique
   email      String?
+  // Profile + KYC (India). No bank details (owner is paid by buyer off the deal).
+  photoUrl      String?  @map("photo_url")
+  panNumber     String?  @map("pan_number")
+  // Aadhaar is sensitive — we store ONLY the last 4 digits (masked), never the full number.
+  aadhaarLast4  String?  @map("aadhaar_last4")
+  addressLine   String?  @map("address_line")
+  locality      String?
+  city          String?
+  state         String?
+  pincode       String?
+  ownershipType String?  @map("ownership_type") // sole | joint | inherited | company | poa
+  idDocUrl      String?  @map("id_doc_url") // uploaded ID proof (image/pdf)
+  // KYC review state: pending → submitted → verified → rejected.
+  kycStatus     String   @default("pending") @map("kyc_status")
   // Phone/KYC verification badge surfaced to brokers. Null until verified.
   verifiedAt DateTime? @map("verified_at")
   createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
 
   listings MarketplaceListing[]
   sessions OwnerSession[]

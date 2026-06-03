@@ -21,6 +21,22 @@ export const ownerRefreshSchema = z.object({
 export const ownerProfileUpdateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   email: z.string().email().optional().or(z.literal("")),
+  photoUrl: z.string().url().optional().or(z.literal("")),
+  panNumber: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/i, "Invalid PAN").optional().or(z.literal("")),
+  aadhaarLast4: z.string().regex(/^\d{4}$/, "Last 4 digits").optional().or(z.literal("")),
+  addressLine: z.string().max(400).optional().or(z.literal("")),
+  locality: z.string().max(200).optional().or(z.literal("")),
+  city: z.string().max(120).optional().or(z.literal("")),
+  state: z.string().max(120).optional().or(z.literal("")),
+  pincode: z.string().regex(/^\d{6}$/, "6-digit pincode").optional().or(z.literal("")),
+  ownershipType: z.enum(["sole", "joint", "inherited", "company", "poa"]).optional().or(z.literal("")),
+  idDocUrl: z.string().url().optional().or(z.literal("")),
+});
+
+// Presign an owner profile asset upload (photo = image; id = image or pdf).
+export const ownerAssetPresignSchema = z.object({
+  kind: z.enum(["photo", "id"]),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
 });
 
 const listingCore = {
