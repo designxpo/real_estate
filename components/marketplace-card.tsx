@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ChatPanel } from "@/components/chat-panel";
 
 type Booking = { id: string; byMyFirm: boolean; daysLeft: number } | null;
 
@@ -29,6 +30,7 @@ export function MarketplaceCard({
   const router = useRouter();
   const [booking, setBooking] = useState<Booking>(initialBooking);
   const [formOpen, setFormOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,7 +119,12 @@ export function MarketplaceCard({
                   Release
                 </button>
               </div>
-              <p className="text-[11px] text-ink-faint">Chat with the owner opens here once messaging ships.</p>
+              <button
+                onClick={() => setChatOpen(true)}
+                className="w-full text-sm px-3 py-2 rounded-inner border border-line text-ink hover:border-accent/60"
+              >
+                💬 Chat with owner
+              </button>
             </div>
           ) : formOpen ? (
             <form onSubmit={submitBooking} className="space-y-2">
@@ -142,16 +149,25 @@ export function MarketplaceCard({
               </div>
             </form>
           ) : (
-            <button
-              onClick={() => setFormOpen(true)}
-              className="w-full text-sm px-3 py-2 rounded-inner border border-accent text-accent hover:bg-accent/10"
-            >
-              Book — I have a buyer
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setFormOpen(true)}
+                className="w-full text-sm px-3 py-2 rounded-inner border border-accent text-accent hover:bg-accent/10"
+              >
+                Book — I have a buyer
+              </button>
+              <button
+                onClick={() => setChatOpen(true)}
+                className="w-full text-sm px-3 py-2 rounded-inner border border-line text-ink hover:border-accent/60"
+              >
+                💬 Chat with owner
+              </button>
+            </div>
           )}
           {error && <div className="text-xs text-red-400 mt-1">{error}</div>}
         </div>
       </div>
+      {chatOpen && <ChatPanel listingId={id} title={title} onClose={() => setChatOpen(false)} />}
     </div>
   );
 }

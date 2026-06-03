@@ -2,13 +2,15 @@
 // /marketplace page opens an EventSource here and refreshes when an owner
 // activates / books / deactivates a listing — true real-time, no polling.
 import { requireUser, AuthError } from "@/lib/auth";
-import { marketplaceBus, type MarketplaceChange } from "@/lib/realtime";
+import { marketplaceBus, type MarketplaceChange, type ChatEvent } from "@/lib/realtime";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  let firmId: string;
   try {
-    await requireUser();
+    const user = await requireUser();
+    firmId = user.firmId;
   } catch (e) {
     if (e instanceof AuthError) return new Response("Unauthorized", { status: 401 });
     throw e;
@@ -33,6 +35,16 @@ export async function GET(req: Request) {
       };
       marketplaceBus.on("change", onChange);
 
+      const onChat = (e: ChatEvent) => {
+        if (e.toFirmId !== firmId) return;
+        try {
+          send("chat", JSON.stringify({ threadId: e.threadId, listingId: e.listingId, message: e.message }));
+        } catch {
+          /* controller closed */
+        }
+      };
+      marketplaceBus.on("chat", onChat);
+
       // Heartbeat keeps proxies/Next from closing the idle connection.
       const heartbeat = setInterval(() => {
         try {
@@ -45,6 +57,7 @@ export async function GET(req: Request) {
       const cleanup = () => {
         clearInterval(heartbeat);
         marketplaceBus.off("change", onChange);
+        marketplaceBus.off("chat", onChat);
         try {
           controller.close();
         } catch {

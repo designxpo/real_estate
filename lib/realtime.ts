@@ -26,3 +26,18 @@ export interface MarketplaceChange {
 export function emitMarketplaceChange(change: Omit<MarketplaceChange, "at">): void {
   marketplaceBus.emit("change", { ...change, at: Date.now() });
 }
+
+// Chat message fan-out. Delivered to exactly one side: the owner (toOwnerId) or
+// the broker firm (toFirmId). The SSE streams filter on these ids.
+export interface ChatEvent {
+  threadId: string;
+  listingId: string;
+  toOwnerId?: string;
+  toFirmId?: string;
+  message: { id: string; senderType: string; body: string; createdAt: string };
+  at: number;
+}
+
+export function emitChat(e: Omit<ChatEvent, "at">): void {
+  marketplaceBus.emit("chat", { ...e, at: Date.now() });
+}

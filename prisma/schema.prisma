@@ -261,6 +261,7 @@ model Firm {
   activityLog       ActivityLog[]
   managedListings   MarketplaceListing[] @relation("FirmManagedListings")
   bookings          ListingBooking[]     @relation("FirmBookings")
+  threads           ListingThread[]      @relation("FirmThreads")
 
   @@map("firms")
 }
@@ -866,6 +867,7 @@ model Owner {
   listings MarketplaceListing[]
   sessions OwnerSession[]
   devices  OwnerDevice[]
+  threads  ListingThread[]
 
   @@map("owners")
 }
@@ -960,6 +962,7 @@ model MarketplaceListing {
   photos        MarketplaceListingPhoto[]
   unlocks       ListingUnlock[] // DEPRECATED (pay-to-reveal removed); kept for data retention
   bookings      ListingBooking[]
+  threads       ListingThread[]
   leads         Lead[]                    @relation("ListingLeads")
   activity      ListingActivityLog[]
 
@@ -990,6 +993,45 @@ model ListingBooking {
   @@index([listingId, status])
   @@index([firmId, status])
   @@map("listing_bookings")
+}
+
+// On-platform chat between an owner and a broker firm about a listing. One thread
+// per (listing, firm) — the owner has an inbox of threads, one per engaging broker.
+// Keeps all contact on-platform; phone/email are redacted from message bodies.
+model ListingThread {
+  id            String   @id @default(cuid())
+  listingId     String   @map("listing_id")
+  firmId        String   @map("firm_id")
+  ownerId       String   @map("owner_id")
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  ownerUnread   Int      @default(0) @map("owner_unread")
+  firmUnread    Int      @default(0) @map("firm_unread")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  listing  MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  firm     Firm               @relation("FirmThreads", fields: [firmId], references: [id], onDelete: Cascade)
+  owner    Owner              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  messages ListingMessage[]
+
+  @@unique([listingId, firmId])
+  @@index([ownerId, lastMessageAt])
+  @@index([firmId, lastMessageAt])
+  @@map("listing_threads")
+}
+
+model ListingMessage {
+  id           String   @id @default(cuid())
+  threadId     String   @map("thread_id")
+  senderType   String   @map("sender_type") // "owner" | "broker"
+  senderUserId String?  @map("sender_user_id") // broker user; null when owner
+  body         String
+  redacted     Boolean  @default(false) // a phone/email/link was stripped
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  thread ListingThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("listing_messages")
 }
 
 // Shared, append-only history for a marketplace listing — visible to BOTH the

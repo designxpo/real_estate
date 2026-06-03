@@ -5,7 +5,7 @@
 // Auth: the EventSource/stream request must carry the owner bearer token. Native
 // SSE clients (and our Dart client) send it as the Authorization header.
 import { requireOwner, OwnerAuthError } from "@/lib/owner-auth";
-import { marketplaceBus } from "@/lib/realtime";
+import { marketplaceBus, type ChatEvent } from "@/lib/realtime";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +43,16 @@ export async function GET(req: Request) {
       };
       marketplaceBus.on("owner_progress", onProgress);
 
+      const onChat = (e: ChatEvent) => {
+        if (e.toOwnerId !== ownerId) return;
+        try {
+          send("chat", JSON.stringify({ threadId: e.threadId, listingId: e.listingId, message: e.message }));
+        } catch {
+          /* closed */
+        }
+      };
+      marketplaceBus.on("chat", onChat);
+
       const heartbeat = setInterval(() => {
         try {
           send("ping", String(Date.now()));
@@ -54,6 +64,7 @@ export async function GET(req: Request) {
       req.signal.addEventListener("abort", () => {
         clearInterval(heartbeat);
         marketplaceBus.off("owner_progress", onProgress);
+        marketplaceBus.off("chat", onChat);
         try {
           controller.close();
         } catch {
