@@ -574,7 +574,9 @@ model SiteVisit {
 model Deal {
   id              String   @id @default(cuid())
   firmId          String   @map("firm_id")
-  propertyId      String   @map("property_id")
+  // A deal originates from a CRM Property OR a marketplace listing (exactly one).
+  propertyId      String?  @map("property_id")
+  marketplaceListingId String? @map("marketplace_listing_id")
   buyerContactId  String   @map("buyer_contact_id")
   sellerContactId String?  @map("seller_contact_id")
   dealType        DealType @map("deal_type")
@@ -603,7 +605,8 @@ model Deal {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   firm          Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
-  property      Property          @relation("DealProperty", fields: [propertyId], references: [id])
+  property      Property?         @relation("DealProperty", fields: [propertyId], references: [id])
+  marketplaceListing MarketplaceListing? @relation("DealListing", fields: [marketplaceListingId], references: [id], onDelete: SetNull)
   buyer         Contact           @relation("DealBuyer", fields: [buyerContactId], references: [id])
   seller        Contact?          @relation("DealSeller", fields: [sellerContactId], references: [id])
   primaryBroker User              @relation("DealPrimaryBroker", fields: [primaryBrokerUserId], references: [id])
@@ -988,6 +991,7 @@ model MarketplaceListing {
   bookings      ListingBooking[]
   threads       ListingThread[]
   leads         Lead[]                    @relation("ListingLeads")
+  deals         Deal[]                    @relation("DealListing")
   activity      ListingActivityLog[]
 
   @@index([ownerId])

@@ -11,7 +11,11 @@ export default async function DealsPage() {
   const user = await requireUserPage();
   const deals = await prisma.deal.findMany({
     where: dealVisibility(user),
-    include: { property: { select: { title: true } }, buyer: { select: { name: true } } },
+    include: {
+      property: { select: { title: true } },
+      marketplaceListing: { select: { title: true } },
+      buyer: { select: { name: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -42,7 +46,7 @@ export default async function DealsPage() {
               {group.map((d) => (
                 <Link key={d.id} href={`/deals/${d.id}`} className="block bg-surface border border-line rounded-inner p-3 hover:bg-hover">
                   <div className="flex justify-between">
-                    <div className="text-sm font-medium text-ink">{d.property.title}</div>
+                    <div className="text-sm font-medium text-ink">{d.property?.title ?? d.marketplaceListing?.title ?? "—"}</div>
                     <div className="text-sm text-ink">₹{Number(d.totalBrokerage).toLocaleString("en-IN")}</div>
                   </div>
                   <div className="text-xs text-ink-muted">{d.buyer.name} · {d.dealType}</div>

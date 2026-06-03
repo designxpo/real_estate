@@ -9,11 +9,11 @@ export async function GET() {
     const user = await requireUser();
     const deals = await prisma.deal.findMany({
       where: dealVisibility(user),
-      include: { property: { select: { title: true } }, buyer: { select: { name: true } }, primaryBroker: { select: { name: true } } },
+      include: { property: { select: { title: true } }, marketplaceListing: { select: { title: true } }, buyer: { select: { name: true } }, primaryBroker: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     });
     const csv = toCsv(deals, [
-      { header: "Property", value: (d) => d.property.title },
+      { header: "Property", value: (d) => d.property?.title ?? d.marketplaceListing?.title ?? "" },
       { header: "Buyer", value: (d) => d.buyer.name },
       { header: "Type", value: (d) => d.dealType },
       { header: "Stage", value: (d) => d.stage },

@@ -11,7 +11,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const user = await requireUserPage();
   const inv = await prisma.invoice.findFirst({
     where: { id, firmId: user.firmId },
-    include: { firm: true, contact: true, deal: { include: { property: { select: { title: true } } } } },
+    include: { firm: true, contact: true, deal: { include: { property: { select: { title: true } }, marketplaceListing: { select: { title: true } } } } },
   });
   if (!inv) notFound();
 
@@ -53,7 +53,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </thead>
           <tbody>
             <tr className="border-b border-gray-200">
-              <td className="py-2">Brokerage — {inv.deal.property.title}</td>
+              <td className="py-2">Brokerage — {inv.deal.property?.title ?? inv.deal.marketplaceListing?.title ?? "Marketplace deal"}</td>
               <td className="text-center">{inv.hsnSac}</td>
               <td className="text-right">₹{Number(inv.brokerageBase).toLocaleString("en-IN")}</td>
             </tr>

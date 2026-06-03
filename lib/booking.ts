@@ -7,9 +7,28 @@
 //                           └────expire/release────▶ LIVE
 import { prisma } from "@/lib/db";
 import { logListingActivity } from "@/lib/listing-activity";
+import { logActivity } from "@/lib/activity";
 import { emitMarketplaceChange } from "@/lib/realtime";
 import { notifyProgress } from "@/lib/owner-progress";
-import type { LeadIntent } from "@prisma/client";
+import { computeBrokerage } from "@/lib/deals";
+import type { DealType, LeadIntent, PriceUnit } from "@prisma/client";
+
+// Convert a listing's price (lakh/crore/per_month/per_sqft) to an absolute rupee
+// figure for the deal. Rent stays monthly (brokerage = months × rent).
+function toAbsolutePrice(amount: number, unit: PriceUnit, areaSqft: number | null): number {
+  switch (unit) {
+    case "lakh": return Math.round(amount * 100_000);
+    case "crore": return Math.round(amount * 10_000_000);
+    case "per_month": return Math.round(amount);
+    case "per_sqft": return Math.round(amount * (areaSqft ?? 1));
+  }
+}
+
+function listingToDealType(listingType: string): DealType {
+  if (listingType === "commercial_lease") return "lease";
+  if (listingType === "rent" || listingType === "pg") return "rent";
+  return "sale";
+}
 
 export class BookingError extends Error {
   constructor(public code: string, message: string) {
@@ -103,19 +122,71 @@ export async function bookListing(input: BookInput) {
   return booking;
 }
 
-// Broker marks the deal done within the window.
-export async function closeBooking(bookingId: string, firmId: string) {
+// Broker marks the deal done within the window. This is the revenue link: it
+// creates a Deal (with brokerage) from the marketplace sale so it flows into the
+// existing commission/invoice pipeline. Returns the created deal id (if any).
+export async function closeBooking(bookingId: string, firmId: string): Promise<{ dealId: string | null }> {
   const booking = await prisma.listingBooking.findUnique({ where: { id: bookingId } });
   if (!booking || booking.firmId !== firmId) throw new BookingError("not_found", "Booking not found");
   if (booking.status !== "active") throw new BookingError("not_active", "This booking is no longer active");
 
+  const listing = await prisma.marketplaceListing.findUnique({ where: { id: booking.listingId } });
+  const lead = booking.leadId
+    ? await prisma.lead.findUnique({ where: { id: booking.leadId }, select: { contactId: true } })
+    : null;
+  const broker = await prisma.user.findUnique({
+    where: { id: booking.userId },
+    select: { commissionDefaultPct: true },
+  });
+
+  const now = new Date();
+  let dealId: string | null = null;
+
   await prisma.$transaction(async (tx) => {
-    await tx.listingBooking.update({ where: { id: bookingId }, data: { status: "closed", closedAt: new Date() } });
+    await tx.listingBooking.update({ where: { id: bookingId }, data: { status: "closed", closedAt: now } });
     await tx.marketplaceListing.update({ where: { id: booking.listingId }, data: { status: "closed" } });
     if (booking.leadId) {
       await tx.lead.updateMany({ where: { id: booking.leadId }, data: { stage: "registered" } });
     }
+
+    // Create the Deal so the sale enters the commission / invoice pipeline.
+    if (listing && lead?.contactId) {
+      const dealType = listingToDealType(listing.listingType);
+      const agreedPrice = toAbsolutePrice(Number(listing.priceAmount), listing.priceUnit, listing.carpetSqft ?? listing.builtupSqft);
+      const pct = dealType === "rent" ? null : Number(broker?.commissionDefaultPct ?? 1);
+      const rentMonths = dealType === "rent" ? 1 : null; // default 1 month brokerage; broker can edit
+      const brokerage = computeBrokerage({
+        dealType,
+        agreedPrice,
+        brokeragePctBuyerSide: pct,
+        rentMonthsBuyerSide: rentMonths,
+      });
+      const deal = await tx.deal.create({
+        data: {
+          firmId,
+          marketplaceListingId: listing.id,
+          buyerContactId: lead.contactId,
+          leadId: booking.leadId,
+          dealType,
+          agreedPrice,
+          brokeragePctBuyerSide: pct,
+          brokerageAmountBuyer: brokerage.buyer,
+          brokerageAmountSeller: brokerage.seller,
+          totalBrokerage: brokerage.total,
+          stage: "completed",
+          registrationDate: now,
+          primaryBrokerUserId: booking.userId,
+          notes: "Auto-created from a marketplace booking. Review the price & brokerage.",
+        },
+      });
+      dealId = deal.id;
+    }
   });
+
+  if (dealId) {
+    await logActivity({ firmId, userId: booking.userId, entityType: "deal", entityId: dealId, action: "create" });
+  }
+
   const firm = await prisma.firm.findUnique({ where: { id: firmId }, select: { name: true } });
   await logListingActivity({
     listingId: booking.listingId,
@@ -126,6 +197,7 @@ export async function closeBooking(bookingId: string, firmId: string) {
   });
   emitMarketplaceChange({ listingId: booking.listingId, status: "closed", moderation: "live", action: "status_change" });
   await notifyProgress(booking.listingId);
+  return { dealId };
 }
 
 // Broker releases their claim early (frees the slot, relists the property).

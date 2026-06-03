@@ -13,6 +13,7 @@ export default async function LeadsPage() {
     include: {
       contact: { select: { name: true } },
       property: { select: { title: true } },
+      marketplaceListing: { select: { title: true } },
       assignedTo: { select: { name: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -21,7 +22,7 @@ export default async function LeadsPage() {
   const cards: LeadCardData[] = leads.map((l) => ({
     id: l.id,
     contactName: l.contact.name,
-    propertyTitle: l.property?.title ?? null,
+    propertyTitle: l.property?.title ?? (l.marketplaceListing ? `${l.marketplaceListing.title} · Marketplace` : null),
     stage: l.stage,
     assignedToName: l.assignedTo?.name ?? null,
     nextFollowupAt: l.nextFollowupAt ? l.nextFollowupAt.toISOString() : null,

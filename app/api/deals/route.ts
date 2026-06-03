@@ -13,6 +13,7 @@ export async function GET() {
       where: dealVisibility(user),
       include: {
         property: { select: { title: true } },
+        marketplaceListing: { select: { title: true } },
         buyer: { select: { name: true } },
         primaryBroker: { select: { name: true } },
       },

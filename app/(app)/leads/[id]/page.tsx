@@ -18,6 +18,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     include: {
       contact: true,
       property: { select: { id: true, title: true } },
+      marketplaceListing: { select: { id: true, title: true } },
       assignedTo: { select: { name: true } },
       siteVisits: { orderBy: { scheduledAt: "desc" } },
     },
@@ -43,6 +44,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <Link href={`/properties/${lead.property.id}`} className="text-accent">{lead.property.title}</Link>
           </div>
         )}
+        {lead.marketplaceListing && (
+          <div><span className="text-ink-muted">Marketplace listing: </span>
+            <Link href={`/listings/${lead.marketplaceListing.id}`} className="text-accent">{lead.marketplaceListing.title}</Link>
+          </div>
+        )}
         {lead.intent && <div><span className="text-ink-muted">Intent: </span>{lead.intent}</div>}
         {lead.assignedTo && <div><span className="text-ink-muted">Assigned: </span>{lead.assignedTo.name}</div>}
         {lead.requirementsText && <div><span className="text-ink-muted">Requirements: </span>{lead.requirementsText}</div>}
@@ -52,10 +58,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
       <LeadActions leadId={lead.id} stage={lead.stage} />
 
-      {CONVERTIBLE.includes(lead.stage) && (
-        <Link href={`/deals/new?leadId=${lead.id}`} className="inline-block text-sm px-3 py-1.5 rounded-inner border border-emerald-500 text-emerald-300 hover:bg-emerald-500/10">
+      {CONVERTIBLE.includes(lead.stage) && !lead.marketplaceListingId && (
+        <Link href={`/deals/new?leadId=${lead.id}`} className="inline-block text-sm px-3 py-1.5 rounded-inner border border-accent text-accent hover:bg-accent-soft">
           Convert to deal →
         </Link>
+      )}
+      {lead.marketplaceListingId && (
+        <div className="text-xs text-ink-muted">
+          This lead came from the marketplace — a deal is created automatically when the broker marks the booking <span className="text-ink">sold</span>.
+        </div>
       )}
 
       <div className="bg-surface border border-line rounded-lg p-4">

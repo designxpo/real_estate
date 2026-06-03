@@ -17,6 +17,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
     where: { id, ...dealVisibility(user) },
     include: {
       property: { select: { id: true, title: true } },
+      marketplaceListing: { select: { id: true, title: true } },
       buyer: { select: { id: true, name: true } },
       seller: { select: { name: true } },
       splits: { include: { user: { select: { name: true } } } },
@@ -25,16 +26,28 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
   });
   if (!deal) notFound();
 
+  const subjectTitle = deal.property?.title ?? deal.marketplaceListing?.title ?? "Deal";
+  const subjectHref = deal.property
+    ? `/properties/${deal.property.id}`
+    : deal.marketplaceListing
+      ? `/listings/${deal.marketplaceListing.id}`
+      : null;
+
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
         <Link href="/deals" className="text-sm text-ink-muted hover:text-ink">← Deals</Link>
         <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-semibold">{deal.property.title}</h1>
+          {subjectHref ? (
+            <Link href={subjectHref} className="text-2xl font-semibold hover:text-accent">{subjectTitle}</Link>
+          ) : (
+            <h1 className="text-2xl font-semibold">{subjectTitle}</h1>
+          )}
           <span className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${DEAL_STAGE_COLORS[deal.stage]}`}>
             {DEAL_STAGE_LABELS[deal.stage]}
           </span>
         </div>
+        {deal.marketplaceListing && <div className="text-xs text-ink-muted mt-1">From marketplace</div>}
       </div>
 
       <div className="bg-surface border border-line rounded-lg p-4 grid grid-cols-2 gap-3 text-sm">

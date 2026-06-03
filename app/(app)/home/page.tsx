@@ -57,6 +57,7 @@ export default async function HomePage() {
         orderBy: { updatedAt: "desc" },
         include: {
           property: { select: { title: true } },
+          marketplaceListing: { select: { title: true } },
           buyer: { select: { name: true } },
         },
         take: 5,
@@ -219,7 +220,7 @@ export default async function HomePage() {
                 className="flex items-center justify-between py-3 first:pt-0 last:pb-0 hover:bg-hover -mx-2 px-2 rounded"
               >
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{d.property.title}</div>
+                  <div className="font-medium truncate">{d.property?.title ?? d.marketplaceListing?.title ?? "Marketplace deal"}</div>
                   <div className="text-xs text-ink-muted truncate">
                     Buyer: {d.buyer.name}
                   </div>
