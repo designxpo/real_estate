@@ -4,7 +4,7 @@
 //
 // Sources of truth (best signal wins → furthest step reached):
 //   • Listed      : listing is live
-//   • Inquiry     : ≥1 ListingUnlock (a broker took the owner's contact)
+//   • Inquiry     : ≥1 booking (a broker is engaging with a buyer)
 //   • Visit→Final : the stage of any linked broker Lead (Lead.marketplaceListingId)
 //   • Closed      : listing booked, or a linked lead registered
 import { prisma } from "@/lib/db";
@@ -63,19 +63,21 @@ export interface OwnerProgress {
 export function buildProgress(input: {
   moderation: string;
   status: string;
-  unlockCount: number;
+  interestedBrokers: number; // brokers engaging (bookings) on this listing
   leadStages: LeadStage[];
 }): OwnerProgress {
   let step = 0; // listed
-  if (input.unlockCount > 0) step = Math.max(step, 1);
+  if (input.interestedBrokers > 0) step = Math.max(step, 1); // inquiry
   for (const s of input.leadStages) step = Math.max(step, leadStageToStep(s));
-  if (input.status === "booked") step = 5;
+  // A booking auto-creates a "negotiating" lead, so booked listings already read
+  // ≥ step 3 via leadStages. Only a true close (status closed) forces step 5.
+  if (input.status === "closed") step = 5;
   return {
     step,
     stepKey: PROGRESS_STEPS[step],
     label: STEP_LABELS[PROGRESS_STEPS[step]],
     steps: PROGRESS_STEPS.map((k) => ({ key: k, label: STEP_LABELS[k] })),
-    interestedBrokers: input.unlockCount,
+    interestedBrokers: input.interestedBrokers,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -88,7 +90,7 @@ export async function computeProgress(listingId: string): Promise<{ ownerId: str
       title: true,
       moderation: true,
       status: true,
-      _count: { select: { unlocks: true } },
+      _count: { select: { bookings: true } },
       leads: { where: { stage: { not: "lost" } }, select: { stage: true } },
     },
   });
@@ -99,7 +101,7 @@ export async function computeProgress(listingId: string): Promise<{ ownerId: str
     progress: buildProgress({
       moderation: listing.moderation,
       status: listing.status,
-      unlockCount: listing._count.unlocks,
+      interestedBrokers: listing._count.bookings,
       leadStages: listing.leads.map((l) => l.stage),
     }),
   };

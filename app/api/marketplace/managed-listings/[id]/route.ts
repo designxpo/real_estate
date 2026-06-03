@@ -60,6 +60,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       "title", "description", "listingType", "propertyType", "bhk", "carpetSqft",
       "builtupSqft", "negotiable", "depositMonths", "addressLine", "locality",
       "city", "state", "lat", "lng", "amenities", "furnishing", "availableFrom", "reraId",
+      "bookingWindowDays",
     ] as const;
     for (const k of scalarKeys) {
       if (d[k] !== undefined) (data as Record<string, unknown>)[k] = d[k];

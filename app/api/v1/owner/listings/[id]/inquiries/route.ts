@@ -1,8 +1,9 @@
-// Brokers who unlocked this owner's listing — the owner's "interested brokers"
-// inbox, so they can call/WhatsApp back. Includes the live lead stage if that
-// broker is actively working a buyer for this listing.
+// Brokers engaging this owner's listing — the owner's "interested brokers" view.
+// Booking model: a broker who has a buyer books the listing (exclusive window).
+// We never expose the broker's phone — coordination stays on-platform (chat).
 import { prisma } from "@/lib/db";
 import { ok, fail, preflight, withOwner } from "@/lib/owner-api";
+import { daysLeft } from "@/lib/booking";
 
 export function OPTIONS() {
   return preflight();
@@ -17,38 +18,30 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     });
     if (!listing || listing.ownerId !== owner.id) return fail("Listing not found", 404);
 
-    const unlocks = await prisma.listingUnlock.findMany({
+    const bookings = await prisma.listingBooking.findMany({
       where: { listingId: id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { bookedAt: "desc" },
+      include: { firm: { select: { name: true } } },
     });
-    if (unlocks.length === 0) return ok({ inquiries: [] });
+    if (bookings.length === 0) return ok({ inquiries: [] });
 
-    // ListingUnlock stores plain firmId/userId; resolve broker + firm + their
-    // furthest lead stage on this listing.
-    const userIds = [...new Set(unlocks.map((u) => u.userId))];
-    const firmIds = [...new Set(unlocks.map((u) => u.firmId))];
-    const [users, firms, leads] = await Promise.all([
-      prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, phone: true } }),
-      prisma.firm.findMany({ where: { id: { in: firmIds } }, select: { id: true, name: true } }),
-      prisma.lead.findMany({
-        where: { marketplaceListingId: id },
-        select: { firmId: true, stage: true, updatedAt: true },
-        orderBy: { updatedAt: "desc" },
-      }),
+    const userIds = [...new Set(bookings.map((b) => b.userId))];
+    const leadIds = bookings.map((b) => b.leadId).filter((x): x is string => !!x);
+    const [users, leads] = await Promise.all([
+      prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
+      prisma.lead.findMany({ where: { id: { in: leadIds } }, select: { id: true, stage: true } }),
     ]);
     const userMap = new Map(users.map((u) => [u.id, u]));
-    const firmMap = new Map(firms.map((f) => [f.id, f]));
-    const stageByFirm = new Map<string, string>();
-    for (const l of leads) {
-      if (!stageByFirm.has(l.firmId)) stageByFirm.set(l.firmId, l.stage); // newest = furthest activity
-    }
+    const stageMap = new Map(leads.map((l) => [l.id, l.stage]));
 
-    const inquiries = unlocks.map((u) => ({
-      brokerName: userMap.get(u.userId)?.name ?? "Broker",
-      brokerPhone: userMap.get(u.userId)?.phone ?? null,
-      firmName: firmMap.get(u.firmId)?.name ?? null,
-      unlockedAt: u.createdAt,
-      leadStage: stageByFirm.get(u.firmId) ?? null,
+    const inquiries = bookings.map((b) => ({
+      brokerName: userMap.get(b.userId)?.name ?? "Broker",
+      brokerPhone: null, // on-platform only — no off-platform contact
+      firmName: b.firm.name,
+      unlockedAt: b.bookedAt,
+      bookingStatus: b.status, // active / closed / expired / cancelled
+      daysLeft: b.status === "active" ? daysLeft(b.expiresAt) : null,
+      leadStage: b.leadId ? stageMap.get(b.leadId) ?? null : null,
     }));
     return ok({ inquiries });
   });

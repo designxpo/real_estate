@@ -14,6 +14,7 @@ const detailInclude = {
   photos: true,
   managedByFirm: { select: { id: true, name: true } },
   managedByUser: { select: { id: true, name: true } },
+  bookings: { where: { status: "active" as const }, take: 1, include: { firm: { select: { name: true } } } },
 } as const;
 
 async function ownedListing(ownerId: string, id: string) {
@@ -51,6 +52,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       "title", "description", "listingType", "propertyType", "bhk", "carpetSqft",
       "builtupSqft", "negotiable", "depositMonths", "addressLine", "locality",
       "city", "state", "lat", "lng", "amenities", "furnishing", "availableFrom", "reraId",
+      "bookingWindowDays",
     ] as const;
     for (const k of scalarKeys) {
       if (d[k] !== undefined) (data as Record<string, unknown>)[k] = d[k];

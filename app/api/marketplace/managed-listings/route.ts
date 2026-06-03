@@ -93,6 +93,7 @@ export async function POST(req: Request) {
         furnishing: d.furnishing,
         availableFrom: d.availableFrom,
         reraId: d.reraId,
+        bookingWindowDays: d.bookingWindowDays ?? undefined,
         status: goLive ? "active" : "draft",
         moderation: goLive ? "live" : "pending_review",
         publicSlug: goLive ? makeListingSlug(d.title) : null,

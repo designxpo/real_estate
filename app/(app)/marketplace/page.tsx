@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireUserPage } from "@/lib/auth";
 import { formatINR } from "@/lib/utils";
+import { releaseExpiredBookings, daysLeft } from "@/lib/booking";
 import { MarketplaceCard } from "@/components/marketplace-card";
 import { MarketplaceLive } from "@/components/marketplace-live";
 import type { Prisma } from "@prisma/client";
@@ -15,23 +16,33 @@ export default async function MarketplacePage({
 }) {
   const user = await requireUserPage();
   const sp = await searchParams;
+  await releaseExpiredBookings(); // relist any claims whose window lapsed
 
-  const where: Prisma.MarketplaceListingWhereInput = { moderation: "live", status: "active" };
-  if (sp.city) where.city = { contains: sp.city, mode: "insensitive" };
-  if (sp.listingType) where.listingType = sp.listingType as never;
+  const and: Prisma.MarketplaceListingWhereInput[] = [
+    {
+      OR: [
+        { status: "active" }, // open to book
+        { bookings: { some: { firmId: user.firmId, status: "active" } } }, // booked by me
+      ],
+    },
+  ];
+  if (sp.city) and.push({ city: { contains: sp.city, mode: "insensitive" } });
+  if (sp.listingType) and.push({ listingType: sp.listingType as never });
   if (sp.q) {
-    where.OR = [
-      { title: { contains: sp.q, mode: "insensitive" } },
-      { locality: { contains: sp.q, mode: "insensitive" } },
-    ];
+    and.push({
+      OR: [
+        { title: { contains: sp.q, mode: "insensitive" } },
+        { locality: { contains: sp.q, mode: "insensitive" } },
+      ],
+    });
   }
 
   const listings = await prisma.marketplaceListing.findMany({
-    where,
+    where: { moderation: "live", AND: and },
     include: {
       photos: { orderBy: { position: "asc" }, take: 1 },
-      owner: { select: { name: true, phone: true, verifiedAt: true } },
-      unlocks: { where: { firmId: user.firmId }, select: { id: true } },
+      owner: { select: { verifiedAt: true } },
+      bookings: { where: { status: "active" }, take: 1 },
     },
     orderBy: { updatedAt: "desc" },
     take: 100,
@@ -52,7 +63,7 @@ export default async function MarketplacePage({
             <MarketplaceLive />
           </div>
         </div>
-        <p className="text-sm text-ink-muted">Owner-listed properties. Unlock to get the owner’s contact.</p>
+        <p className="text-sm text-ink-muted">Owner-listed properties. Have a buyer? Book one to claim an exclusive window to close — all on-platform.</p>
       </div>
 
       <form className="flex flex-wrap gap-2" method="get">
@@ -77,20 +88,23 @@ export default async function MarketplacePage({
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {listings.map((l) => (
-            <MarketplaceCard
-              key={l.id}
-              id={l.id}
-              title={l.title}
-              priceLabel={formatINR(l.priceAmount.toString(), l.priceUnit)}
-              meta={[l.bhk ? `${l.bhk} BHK` : null, l.propertyType, l.listingType].filter(Boolean).join(" · ")}
-              location={[l.locality, l.city].filter(Boolean).join(", ")}
-              photo={l.photos[0]?.url ?? null}
-              ownerVerified={!!l.owner.verifiedAt}
-              initialUnlocked={l.unlocks.length > 0}
-              owner={l.unlocks.length > 0 ? { name: l.owner.name, phone: l.owner.phone } : null}
-            />
-          ))}
+          {listings.map((l) => {
+            const bk = l.bookings[0];
+            return (
+              <MarketplaceCard
+                key={l.id}
+                id={l.id}
+                title={l.title}
+                priceLabel={formatINR(l.priceAmount.toString(), l.priceUnit)}
+                meta={[l.bhk ? `${l.bhk} BHK` : null, l.propertyType, l.listingType].filter(Boolean).join(" · ")}
+                location={[l.locality, l.city].filter(Boolean).join(", ")}
+                photo={l.photos[0]?.url ?? null}
+                ownerVerified={!!l.owner.verifiedAt}
+                windowDays={l.bookingWindowDays}
+                booking={bk ? { id: bk.id, byMyFirm: bk.firmId === user.firmId, daysLeft: daysLeft(bk.expiresAt) } : null}
+              />
+            );
+          })}
         </div>
       )}
     </div>

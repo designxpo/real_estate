@@ -47,6 +47,8 @@ const listingCore = {
   furnishing: z.enum(["unfurnished", "semi", "fully"]).optional(),
   availableFrom: z.coerce.date().optional(),
   reraId: z.string().max(60).optional(),
+  // Owner-set exclusivity window: days a broker gets to close after booking.
+  bookingWindowDays: z.coerce.number().int().min(1).max(90).optional(),
 };
 
 export const ownerListingCreateSchema = z.object(listingCore);

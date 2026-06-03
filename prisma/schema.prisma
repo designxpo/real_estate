@@ -217,6 +217,13 @@ enum ListingModeration {
   archived
 }
 
+enum BookingStatus {
+  active // a broker holds the exclusive close window (countdown running)
+  closed // deal completed within the window
+  expired // window elapsed without a close → listing auto-relisted
+  cancelled // broker released it early
+}
+
 model Firm {
   id            String    @id @default(cuid())
   name          String
@@ -232,6 +239,9 @@ model Firm {
   webhookToken  String    @unique @default(cuid()) @map("webhook_token")
   // Phase 9: onboarding state
   onboardedAt   DateTime? @map("onboarded_at")
+  // Subscription cap: how many marketplace listings this firm may hold booked at
+  // once. Free = 1; paid tiers raise it (billing wired in a later phase).
+  maxActiveBookings Int   @default(1) @map("max_active_bookings")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   users             User[]
@@ -250,6 +260,7 @@ model Firm {
   notifications     Notification[]
   activityLog       ActivityLog[]
   managedListings   MarketplaceListing[] @relation("FirmManagedListings")
+  bookings          ListingBooking[]     @relation("FirmBookings")
 
   @@map("firms")
 }
@@ -936,6 +947,10 @@ model MarketplaceListing {
   moderation ListingModeration @default(pending_review)
   publicSlug String?           @unique @map("public_slug")
 
+  // Owner-set exclusivity window: a broker who books this gets this many days to
+  // close before it auto-relists. Subscription model — owner contact is never revealed.
+  bookingWindowDays Int @default(7) @map("booking_window_days")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -943,7 +958,8 @@ model MarketplaceListing {
   managedByFirm Firm?                     @relation("FirmManagedListings", fields: [managedByFirmId], references: [id], onDelete: SetNull)
   managedByUser User?                     @relation("UserManagedListings", fields: [managedByUserId], references: [id], onDelete: SetNull)
   photos        MarketplaceListingPhoto[]
-  unlocks       ListingUnlock[]
+  unlocks       ListingUnlock[] // DEPRECATED (pay-to-reveal removed); kept for data retention
+  bookings      ListingBooking[]
   leads         Lead[]                    @relation("ListingLeads")
   activity      ListingActivityLog[]
 
@@ -951,6 +967,29 @@ model MarketplaceListing {
   @@index([managedByFirmId])
   @@index([city, moderation, status])
   @@map("marketplace_listings")
+}
+
+// A broker's exclusive claim on a listing: they have a buyer and N days to close.
+// Only one `active` booking per listing at a time (enforced in lib/booking.ts).
+model ListingBooking {
+  id         String        @id @default(cuid())
+  listingId  String        @map("listing_id")
+  firmId     String        @map("firm_id")
+  userId     String        @map("user_id") // broker who booked
+  leadId     String?       @map("lead_id") // the buyer lead created at booking
+  status     BookingStatus @default(active)
+  windowDays Int           @map("window_days") // snapshot of the owner's window
+  bookedAt   DateTime      @default(now()) @map("booked_at")
+  expiresAt  DateTime      @map("expires_at")
+  closedAt   DateTime?     @map("closed_at")
+  releasedAt DateTime?     @map("released_at")
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  firm    Firm               @relation("FirmBookings", fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, status])
+  @@index([firmId, status])
+  @@map("listing_bookings")
 }
 
 // Shared, append-only history for a marketplace listing — visible to BOTH the

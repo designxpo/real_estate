@@ -1,6 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+type Booking = { id: string; byMyFirm: boolean; daysLeft: number } | null;
 
 export function MarketplaceCard({
   id,
@@ -10,8 +13,8 @@ export function MarketplaceCard({
   location,
   photo,
   ownerVerified,
-  initialUnlocked,
-  owner,
+  windowDays,
+  booking: initialBooking,
 }: {
   id: string;
   title: string;
@@ -20,25 +23,53 @@ export function MarketplaceCard({
   location: string;
   photo: string | null;
   ownerVerified: boolean;
-  initialUnlocked: boolean;
-  owner: { name: string; phone: string } | null;
+  windowDays: number;
+  booking: Booking;
 }) {
-  const [unlocked, setUnlocked] = useState(initialUnlocked);
-  const [contact, setContact] = useState(owner);
+  const router = useRouter();
+  const [booking, setBooking] = useState<Booking>(initialBooking);
+  const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function unlock() {
+  async function submitBooking(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/marketplace/listings/${id}/unlock`, { method: "POST" });
+    const f = new FormData(e.currentTarget);
+    const res = await fetch(`/api/marketplace/listings/${id}/book`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        buyer: { name: f.get("name"), phone: f.get("phone"), intent: f.get("intent") || undefined },
+      }),
+    });
     setBusy(false);
     if (res.ok) {
       const data = await res.json();
-      setContact(data.owner);
-      setUnlocked(true);
+      setBooking({ id: data.booking.id, byMyFirm: true, daysLeft: data.booking.daysLeft });
+      setFormOpen(false);
     } else {
-      setError("Could not unlock.");
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Could not book this listing.");
+    }
+  }
+
+  async function bookingAction(action: "close" | "release") {
+    if (!booking) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/marketplace/bookings/${booking.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setBooking(null);
+      router.refresh();
+    } else {
+      setError("Action failed.");
     }
   }
 
@@ -62,28 +93,60 @@ export function MarketplaceCard({
         <div className="text-xs text-ink-faint">{location}</div>
 
         <div className="mt-3 pt-3 border-t border-line">
-          {unlocked && contact ? (
-            <div className="text-sm space-y-2">
-              <div>
-                <div className="text-ink">{contact.name}</div>
-                <a href={`tel:${contact.phone}`} className="text-accent">{contact.phone}</a>
+          {booking?.byMyFirm ? (
+            <div className="space-y-2">
+              <div className="text-xs">
+                <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                  ● Booked by you
+                </span>
+                <span className="text-ink-muted"> · {booking.daysLeft} day{booking.daysLeft === 1 ? "" : "s"} left to close</span>
               </div>
-              {/* Creates a Lead linked to this owner listing; advancing it in the
-                  kanban drives the owner's live progress tracker. */}
-              <a
-                href={`/leads/new?marketplaceListingId=${id}`}
-                className="block w-full text-center text-sm px-3 py-2 rounded-inner bg-accent text-white hover:bg-accent/90"
-              >
-                Bring a buyer →
-              </a>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bookingAction("close")}
+                  disabled={busy}
+                  className="flex-1 text-sm px-3 py-2 rounded-inner bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                >
+                  Mark sold
+                </button>
+                <button
+                  onClick={() => bookingAction("release")}
+                  disabled={busy}
+                  className="text-sm px-3 py-2 rounded-inner border border-line text-ink-muted hover:text-ink disabled:opacity-50"
+                >
+                  Release
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-faint">Chat with the owner opens here once messaging ships.</p>
             </div>
+          ) : formOpen ? (
+            <form onSubmit={submitBooking} className="space-y-2">
+              <p className="text-[11px] text-ink-muted">
+                Booking reserves this for {windowDays} days to close. Enter your buyer:
+              </p>
+              <input name="name" required placeholder="Buyer name" className="w-full bg-surface-2 border border-line rounded-inner px-2 py-1.5 text-sm text-ink" />
+              <input name="phone" required placeholder="Buyer phone" className="w-full bg-surface-2 border border-line rounded-inner px-2 py-1.5 text-sm text-ink" />
+              <select name="intent" className="w-full bg-surface-2 border border-line rounded-inner px-2 py-1.5 text-sm text-ink" defaultValue="">
+                <option value="">Intent (optional)</option>
+                <option value="buy">Buy</option>
+                <option value="rent">Rent</option>
+                <option value="invest">Invest</option>
+              </select>
+              <div className="flex gap-2">
+                <button type="submit" disabled={busy} className="flex-1 text-sm px-3 py-2 rounded-inner bg-accent text-white disabled:opacity-50">
+                  {busy ? "Booking…" : "Confirm booking"}
+                </button>
+                <button type="button" onClick={() => { setFormOpen(false); setError(null); }} className="text-sm px-3 py-2 rounded-inner border border-line text-ink-muted">
+                  Cancel
+                </button>
+              </div>
+            </form>
           ) : (
             <button
-              onClick={unlock}
-              disabled={busy}
-              className="w-full text-sm px-3 py-2 rounded-inner border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+              onClick={() => setFormOpen(true)}
+              className="w-full text-sm px-3 py-2 rounded-inner border border-accent text-accent hover:bg-accent/10"
             >
-              {busy ? "Unlocking…" : "🔓 Unlock owner contact"}
+              Book — I have a buyer
             </button>
           )}
           {error && <div className="text-xs text-red-400 mt-1">{error}</div>}

@@ -17,6 +17,7 @@ export async function GET(req: Request) {
         photos: true,
         managedByFirm: { select: { id: true, name: true } },
         managedByUser: { select: { id: true, name: true } },
+        bookings: { where: { status: "active" }, take: 1, include: { firm: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
         furnishing: d.furnishing,
         availableFrom: d.availableFrom,
         reraId: d.reraId,
+        bookingWindowDays: d.bookingWindowDays ?? undefined,
         status: "draft",
         moderation: "pending_review",
       },

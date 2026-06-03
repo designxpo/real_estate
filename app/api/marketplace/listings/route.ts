@@ -1,44 +1,55 @@
-// Broker-facing marketplace: browse LIVE owner listings (open pool). The owner's
-// contact is hidden until this firm unlocks the listing.
+// Broker-facing marketplace: browse LIVE owner listings (open pool). Subscription
+// model — the owner's contact is never exposed. A broker with a buyer BOOKS a
+// listing to claim an exclusive close window; booked listings are reserved
+// (hidden from others) and only the booking firm still sees them here.
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AuthError, requireUser } from "@/lib/auth";
+import { releaseExpiredBookings, daysLeft } from "@/lib/booking";
 import type { Prisma } from "@prisma/client";
 
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    await releaseExpiredBookings(); // lazy sweep so expired claims relist on browse
     const sp = new URL(req.url).searchParams;
 
-    const where: Prisma.MarketplaceListingWhereInput = {
-      moderation: "live",
-      status: "active",
-    };
-    if (sp.get("city")) where.city = { contains: sp.get("city")!, mode: "insensitive" };
-    if (sp.get("listingType")) where.listingType = sp.get("listingType")! as never;
-    if (sp.get("propertyType")) where.propertyType = sp.get("propertyType")! as never;
-    if (sp.get("bhk")) where.bhk = Number(sp.get("bhk"));
+    const and: Prisma.MarketplaceListingWhereInput[] = [
+      // Live + (still open) OR (booked by my own firm, so I can manage it).
+      {
+        OR: [
+          { status: "active" },
+          { bookings: { some: { firmId: user.firmId, status: "active" } } },
+        ],
+      },
+    ];
+    if (sp.get("city")) and.push({ city: { contains: sp.get("city")!, mode: "insensitive" } });
+    if (sp.get("listingType")) and.push({ listingType: sp.get("listingType")! as never });
+    if (sp.get("propertyType")) and.push({ propertyType: sp.get("propertyType")! as never });
+    if (sp.get("bhk")) and.push({ bhk: Number(sp.get("bhk")) });
     const q = sp.get("q");
     if (q) {
-      where.OR = [
-        { title: { contains: q, mode: "insensitive" } },
-        { locality: { contains: q, mode: "insensitive" } },
-      ];
+      and.push({
+        OR: [
+          { title: { contains: q, mode: "insensitive" } },
+          { locality: { contains: q, mode: "insensitive" } },
+        ],
+      });
     }
 
     const listings = await prisma.marketplaceListing.findMany({
-      where,
+      where: { moderation: "live", AND: and },
       include: {
         photos: { orderBy: { position: "asc" }, take: 1 },
-        owner: { select: { name: true, phone: true, verifiedAt: true } },
-        unlocks: { where: { firmId: user.firmId }, select: { id: true } },
+        owner: { select: { verifiedAt: true } },
+        bookings: { where: { status: "active" }, take: 1 },
       },
       orderBy: { updatedAt: "desc" },
       take: 100,
     });
 
     const data = listings.map((l) => {
-      const unlocked = l.unlocks.length > 0;
+      const bk = l.bookings[0];
       return {
         id: l.id,
         title: l.title,
@@ -50,8 +61,10 @@ export async function GET(req: Request) {
         city: l.city,
         photo: l.photos[0]?.url ?? null,
         ownerVerified: !!l.owner.verifiedAt,
-        unlocked,
-        owner: unlocked ? { name: l.owner.name, phone: l.owner.phone } : null,
+        bookingWindowDays: l.bookingWindowDays,
+        booking: bk
+          ? { id: bk.id, byMyFirm: bk.firmId === user.firmId, daysLeft: daysLeft(bk.expiresAt), expiresAt: bk.expiresAt }
+          : null,
       };
     });
     return NextResponse.json({ listings: data });
