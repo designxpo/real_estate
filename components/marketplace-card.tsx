@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChatPanel } from "@/components/chat-panel";
@@ -33,6 +34,7 @@ export function MarketplaceCard({
   const [chatOpen, setChatOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capReached, setCapReached] = useState(false);
 
   async function submitBooking(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -54,6 +56,7 @@ export function MarketplaceCard({
     } else {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? "Could not book this listing.");
+      setCapReached(d.code === "cap_reached");
     }
   }
 
@@ -164,7 +167,17 @@ export function MarketplaceCard({
               </button>
             </div>
           )}
-          {error && <div className="text-xs text-red-400 mt-1">{error}</div>}
+          {error && (
+            <div className="text-xs text-red-400 mt-1">
+              {error}
+              {capReached && (
+                <>
+                  {" "}
+                  <Link href="/billing" className="underline text-accent">View plans</Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {chatOpen && <ChatPanel listingId={id} title={title} onClose={() => setChatOpen(false)} />}

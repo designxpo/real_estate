@@ -29,6 +29,18 @@ export default async function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
       <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Plans &amp; billing</h2>
+            <p className="text-sm text-ink-muted">Manage your marketplace subscription and booking capacity.</p>
+          </div>
+          <Link href="/billing" className="text-sm px-4 py-2 rounded-inner bg-accent text-white shrink-0">
+            View plans
+          </Link>
+        </div>
+      </Card>
+
+      <Card>
         <h2 className="font-semibold mb-3">Firm</h2>
         <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
           <dt className="text-ink-faint">Name</dt>

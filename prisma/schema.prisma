@@ -240,8 +240,11 @@ model Firm {
   // Phase 9: onboarding state
   onboardedAt   DateTime? @map("onboarded_at")
   // Subscription cap: how many marketplace listings this firm may hold booked at
-  // once. Free = 1; paid tiers raise it (billing wired in a later phase).
-  maxActiveBookings Int   @default(1) @map("max_active_bookings")
+  // once. Set from the active plan (see lib/plans.ts). Free = 1.
+  maxActiveBookings    Int       @default(1) @map("max_active_bookings")
+  planId               String    @default("free") @map("plan_id")
+  subscriptionStatus   String    @default("active") @map("subscription_status") // active | past_due | cancelled
+  subscriptionRenewsAt DateTime? @map("subscription_renews_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   users             User[]
@@ -262,8 +265,29 @@ model Firm {
   managedListings   MarketplaceListing[] @relation("FirmManagedListings")
   bookings          ListingBooking[]     @relation("FirmBookings")
   threads           ListingThread[]      @relation("FirmThreads")
+  billingTxns       BillingTransaction[]
 
   @@map("firms")
+}
+
+// Audit/history of subscription charges + plan changes. In dev mode (no provider
+// keys) a row is written with provider="dev"; in prod the webhook writes "paid".
+model BillingTransaction {
+  id                String   @id @default(cuid())
+  firmId            String   @map("firm_id")
+  planId            String   @map("plan_id")
+  amount            Int // INR rupees
+  currency          String   @default("INR")
+  provider          String // "dev" | "razorpay" | "stripe"
+  providerOrderId   String?  @map("provider_order_id")
+  providerPaymentId String?  @map("provider_payment_id")
+  status            String // created | paid | failed
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+
+  @@index([firmId, createdAt])
+  @@map("billing_transactions")
 }
 
 model User {
