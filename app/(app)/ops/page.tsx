@@ -71,7 +71,7 @@ export default async function OpsOverviewPage() {
         <div className="flex gap-2">
           <Link href="/ops/units" className="text-sm px-3 py-1.5 rounded-inner border border-line hover:border-accent/60">Units</Link>
           <Link href="/ops/work-orders" className="text-sm px-3 py-1.5 rounded-inner border border-line hover:border-accent/60">Work orders</Link>
-          <Link href="/ops/rent" className="text-sm px-3 py-1.5 rounded-inner border border-line text-ink-faint" title="Coming soon">Rent</Link>
+          <Link href="/ops/rent" className="text-sm px-3 py-1.5 rounded-inner border border-line hover:border-accent/60">Rent</Link>
         </div>
       </div>
 

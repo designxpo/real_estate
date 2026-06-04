@@ -40,6 +40,7 @@ export default async function FirmSettingsPage() {
           pincode: firm.pincode,
           website: firm.website,
           about: firm.about,
+          upiVpa: firm.upiVpa,
         }}
       />
     </div>

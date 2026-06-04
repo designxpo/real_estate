@@ -170,6 +170,104 @@ export function WorkOrderActions({ id, status }: { id: string; status: string })
   );
 }
 
+export function GenerateRentButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await postJson("/api/pm/rent/generate", {});
+        setBusy(false);
+        router.refresh();
+      }}
+      className="text-sm px-4 py-2 rounded-inner bg-accent text-white disabled:opacity-60"
+    >
+      {busy ? "Generating…" : "Generate this month's rent"}
+    </button>
+  );
+}
+
+export function RecordPaymentForm({ leaseId, chargeId, defaultAmount }: { leaseId: string; chargeId?: string; defaultAmount: number }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    const f = new FormData(e.currentTarget);
+    const body = { leaseId, chargeId, ...Object.fromEntries([...f.entries()].map(([k, v]) => [k, (v as string).trim()])) };
+    const res = await fetch("/api/pm/rent/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    setBusy(false);
+    if (res.ok) {
+      const d = await res.json();
+      router.push(`/ops/rent/receipt/${d.id}`);
+    } else setError("Could not record payment.");
+  }
+  if (!open) return <button onClick={() => setOpen(true)} className="text-xs px-2.5 py-1 rounded-inner bg-accent text-white">Record payment</button>;
+  return (
+    <form onSubmit={submit} className="mt-2 p-3 rounded-inner border border-line bg-surface-2/50 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={label}>Amount (₹)</label><input name="amount" type="number" required min={0} defaultValue={defaultAmount || ""} className={input} /></div>
+        <div>
+          <label className={label}>Method</label>
+          <select name="method" className={input} defaultValue="upi">
+            {["upi", "bank", "cash", "cheque"].map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+      <div><label className={label}>Reference / UTR (optional)</label><input name="reference" className={input} /></div>
+      {error && <div className="text-xs text-urgent">{error}</div>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="text-xs px-3 py-1.5 rounded-inner bg-accent text-white disabled:opacity-60">{busy ? "Saving…" : "Save & receipt"}</button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs px-3 py-1.5 rounded-inner border border-line text-ink-muted">Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+export function UpiCollect({ upi }: { upi: string }) {
+  const [open, setOpen] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && !qr) {
+      const QR = (await import("qrcode")).default;
+      setQr(await QR.toDataURL(upi, { margin: 1, width: 180 }));
+    }
+  }
+  return (
+    <div>
+      <button onClick={toggle} className="text-xs px-2.5 py-1 rounded-inner border border-accent text-accent hover:bg-accent/10">UPI</button>
+      {open && (
+        <div className="mt-2 p-3 rounded-inner border border-line bg-surface text-center space-y-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {qr ? <img src={qr} alt="UPI QR" className="mx-auto" width={150} height={150} /> : <div className="text-xs text-ink-faint py-6">Generating…</div>}
+          <a href={upi} className="block text-xs px-3 py-1.5 rounded-inner bg-accent text-white">Open UPI app</a>
+          <button
+            onClick={() => { navigator.clipboard?.writeText(upi); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            className="text-[11px] text-ink-muted hover:text-ink"
+          >
+            {copied ? "Copied ✓" : "Copy UPI link"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PrintButton() {
+  return (
+    <button onClick={() => window.print()} className="text-sm px-4 py-2 rounded-inner bg-accent text-white print:hidden">
+      Print / Save PDF
+    </button>
+  );
+}
+
 export function UnitStatusButton({ id, status }: { id: string; status: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

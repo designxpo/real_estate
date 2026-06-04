@@ -16,6 +16,7 @@ type Firm = {
   pincode: string | null;
   website: string | null;
   about: string | null;
+  upiVpa: string | null;
 };
 
 const FIRM_TYPES = [
@@ -79,7 +80,10 @@ export function FirmKycForm({ firm }: { firm: Firm }) {
         <div><label className={labelCls}>State</label><input name="state" defaultValue={firm.state ?? ""} className={inputCls} /></div>
         <div><label className={labelCls}>Pincode</label><input name="pincode" defaultValue={firm.pincode ?? ""} inputMode="numeric" className={inputCls} /></div>
       </div>
-      <div><label className={labelCls}>Website</label><input name="website" defaultValue={firm.website ?? ""} className={inputCls} placeholder="https://…" /></div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div><label className={labelCls}>Website</label><input name="website" defaultValue={firm.website ?? ""} className={inputCls} placeholder="https://…" /></div>
+        <div><label className={labelCls}>UPI ID (rent collection)</label><input name="upiVpa" defaultValue={firm.upiVpa ?? ""} className={inputCls} placeholder="firm@okhdfcbank" /></div>
+      </div>
       <div><label className={labelCls}>About (shown to owners)</label><textarea name="about" defaultValue={firm.about ?? ""} rows={3} className={inputCls} /></div>
 
       {msg && <div className="text-sm text-positive">{msg}</div>}

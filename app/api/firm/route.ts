@@ -19,6 +19,7 @@ const schema = z.object({
   pincode: z.string().max(6).optional(),
   website: z.string().max(200).optional(),
   about: z.string().max(2000).optional(),
+  upiVpa: z.string().max(120).optional(),
 });
 
 export async function PATCH(req: Request) {
