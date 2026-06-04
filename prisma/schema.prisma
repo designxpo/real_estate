@@ -776,6 +776,8 @@ model Owner {
   name       String
   phone      String    @unique
   email      String?
+  // Google sign-in linkage (set when the owner authenticates via Google).
+  googleId      String?  @unique @map("google_id")
   // Profile + KYC (India). No bank details (owner is paid by buyer off the deal).
   photoUrl      String?  @map("photo_url")
   panNumber     String?  @map("pan_number")
