@@ -6,6 +6,7 @@ import { AuthError, requireUser } from "@/lib/auth";
 import { ownerListingUpdateSchema } from "@/lib/owner-validators";
 import { serializeListing, makeListingSlug } from "@/lib/owner-listing";
 import { logListingActivity, serializeActivity, describeChanges } from "@/lib/listing-activity";
+import { geocodeListingIfNeeded } from "@/lib/geocode";
 import { emitMarketplaceChange } from "@/lib/realtime";
 import type { Prisma } from "@prisma/client";
 
@@ -83,6 +84,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     // Log: a status change and a field edit are distinct timeline entries.
     if (statusChanged) {
+      if (updated.status === "active") await geocodeListingIfNeeded(id);
       await logListingActivity({
         listingId: id,
         actorType: "broker",

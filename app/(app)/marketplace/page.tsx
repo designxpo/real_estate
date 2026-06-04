@@ -55,6 +55,12 @@ export default async function MarketplacePage({
           <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
           <div className="flex items-center gap-3">
             <Link
+              href="/search"
+              className="text-sm px-3 py-1.5 rounded-inner border border-line text-ink-muted hover:text-ink hover:border-accent/60"
+            >
+              Map view →
+            </Link>
+            <Link
               href="/marketplace/managed"
               className="text-sm px-3 py-1.5 rounded-inner border border-line text-ink-muted hover:text-ink hover:border-accent/60"
             >

@@ -4,6 +4,7 @@ import { serializeListing, makeListingSlug } from "@/lib/owner-listing";
 import { ok, fail, preflight, withOwner } from "@/lib/owner-api";
 import { emitMarketplaceChange } from "@/lib/realtime";
 import { logListingActivity, describeChanges } from "@/lib/listing-activity";
+import { geocodeListingIfNeeded } from "@/lib/geocode";
 import type { Prisma } from "@prisma/client";
 
 export function OPTIONS() {
@@ -83,6 +84,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     // Record both kinds of change in the shared timeline (broker sees these in
     // the portal). Only meaningful for managed listings, but harmless otherwise.
     if (statusChanged) {
+      // Going live → make sure it has map coordinates for discovery.
+      if (updated.status === "active") await geocodeListingIfNeeded(id);
       await logListingActivity({
         listingId: id,
         actorType: "owner",

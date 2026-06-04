@@ -8,6 +8,7 @@ import { normalizePhone } from "@/lib/utils";
 import { brokerManagedListingCreateSchema } from "@/lib/owner-validators";
 import { serializeListing, makeListingSlug } from "@/lib/owner-listing";
 import { logListingActivity } from "@/lib/listing-activity";
+import { geocodeListingIfNeeded } from "@/lib/geocode";
 import { emitMarketplaceChange } from "@/lib/realtime";
 
 // All marketplace listings this firm manages on behalf of owners.
@@ -110,6 +111,7 @@ export async function POST(req: Request) {
     });
 
     if (goLive) {
+      await geocodeListingIfNeeded(listing.id);
       emitMarketplaceChange({ listingId: listing.id, status: "active", moderation: "live", action: "status_change" });
     }
     return NextResponse.json(serializeListing(listing), { status: 201 });
