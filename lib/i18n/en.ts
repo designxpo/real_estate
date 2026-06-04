@@ -8,6 +8,7 @@ export const en = {
     myLeads: "My Leads",
     deals: "Deals",
     ops: "Operations",
+    broadcast: "Broadcast",
     contacts: "Contacts",
     whatsapp: "WhatsApp",
     analytics: "Analytics",

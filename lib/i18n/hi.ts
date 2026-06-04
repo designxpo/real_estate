@@ -10,6 +10,7 @@ export const hi: Dictionary = {
     myLeads: "मेरी लीड्स",
     deals: "डील्स",
     ops: "ऑपरेशन्स",
+    broadcast: "ब्रॉडकास्ट",
     contacts: "संपर्क",
     whatsapp: "व्हाट्सऐप",
     analytics: "एनालिटिक्स",

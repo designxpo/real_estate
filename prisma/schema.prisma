@@ -248,8 +248,45 @@ model Firm {
   pmWorkOrders      PmWorkOrder[]
   pmRentCharges     PmRentCharge[]
   pmPayments        PmPayment[]
+  broadcasts        Broadcast[]
 
   @@map("firms")
+}
+
+// A segmented mass message (§4F). Recipients are resolved + merged at send time
+// and recorded for audit. Transport (WhatsApp/SMS) is best-effort + gated.
+model Broadcast {
+  id              String   @id @default(cuid())
+  firmId          String   @map("firm_id")
+  segment         String // tenants | leads | team
+  filter          String? // building (tenants) or lead stage (leads)
+  channel         String // whatsapp | sms
+  body            String // template with {name} {unit} {rentDue} {firm}
+  totalCount      Int      @default(0) @map("total_count")
+  sentCount       Int      @default(0) @map("sent_count")
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  firm       Firm                 @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  recipients BroadcastRecipient[]
+
+  @@index([firmId, createdAt])
+  @@map("broadcasts")
+}
+
+model BroadcastRecipient {
+  id          String   @id @default(cuid())
+  broadcastId String   @map("broadcast_id")
+  name        String
+  phone       String
+  body        String // merged message
+  status      String // sent | failed | queued | skipped_optout
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@index([broadcastId])
+  @@map("broadcast_recipients")
 }
 
 // --- Property Management Ops (§4D) -----------------------------------------
