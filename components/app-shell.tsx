@@ -16,6 +16,7 @@ type NavLabels = {
   leads: string;
   myLeads: string;
   deals: string;
+  ops: string;
   contacts: string;
   whatsapp: string;
   analytics: string;
@@ -38,6 +39,7 @@ const NAV_ITEMS: Array<{
   { href: "/marketplace", key: "marketplace", icon: "◫", badge: "new" },
   { href: "/leads", key: "leads", icon: "◎" },
   { href: "/deals", key: "deals", icon: "◈" },
+  { href: "/ops", key: "ops", icon: "▦", badge: "new", hideFor: ["sub_broker"] },
   { href: "/contacts", key: "contacts", icon: "○" },
   { href: "/whatsapp", key: "whatsapp", icon: "◐", badge: "new" },
   // Firm-wide analytics & reports are management views — hide from sub-brokers.

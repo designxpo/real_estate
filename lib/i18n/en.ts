@@ -7,6 +7,7 @@ export const en = {
     leads: "Leads",
     myLeads: "My Leads",
     deals: "Deals",
+    ops: "Operations",
     contacts: "Contacts",
     whatsapp: "WhatsApp",
     analytics: "Analytics",

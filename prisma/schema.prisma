@@ -240,8 +240,97 @@ model Firm {
   bookings          ListingBooking[]     @relation("FirmBookings")
   threads           ListingThread[]      @relation("FirmThreads")
   billingTxns       BillingTransaction[]
+  pmUnits           PmUnit[]
+  pmTenants         PmTenant[]
+  pmLeases          PmLease[]
+  pmWorkOrders      PmWorkOrder[]
 
   @@map("firms")
+}
+
+// --- Property Management Ops (§4D) -----------------------------------------
+// A managed rental unit. Firm-scoped; the brokerage runs PM for owner clients.
+model PmUnit {
+  id          String   @id @default(cuid())
+  firmId      String   @map("firm_id")
+  building    String? // grouping label, e.g. "Sunrise Residency"
+  label       String // unit no / name, e.g. "A-302"
+  addressLine String?  @map("address_line")
+  city        String?
+  bedrooms    Int?
+  sqft        Int?
+  marketRent  Decimal? @map("market_rent") @db.Decimal(12, 2) // monthly
+  status      String   @default("vacant") // vacant | occupied | notice
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  firm       Firm          @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  leases     PmLease[]
+  workOrders PmWorkOrder[]
+
+  @@index([firmId, status])
+  @@map("pm_units")
+}
+
+model PmTenant {
+  id        String   @id @default(cuid())
+  firmId    String   @map("firm_id")
+  name      String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  firm   Firm      @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  leases PmLease[]
+
+  @@index([firmId])
+  @@map("pm_tenants")
+}
+
+model PmLease {
+  id            String    @id @default(cuid())
+  firmId        String    @map("firm_id")
+  unitId        String    @map("unit_id")
+  tenantId      String    @map("tenant_id")
+  rentAmount    Decimal   @map("rent_amount") @db.Decimal(12, 2)
+  depositAmount Decimal?  @map("deposit_amount") @db.Decimal(12, 2)
+  rentDueDay    Int       @default(5) @map("rent_due_day") // day of month (1–28)
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime? @map("end_date")
+  status        String    @default("active") // active | ended | upcoming
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  firm   Firm     @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  unit   PmUnit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant PmTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([firmId, status])
+  @@index([unitId])
+  @@map("pm_leases")
+}
+
+model PmWorkOrder {
+  id             String    @id @default(cuid())
+  firmId         String    @map("firm_id")
+  unitId         String?   @map("unit_id")
+  title          String
+  description    String?
+  category       String    @default("other") // plumbing | electrical | hvac | carpentry | cleaning | other
+  priority       String    @default("normal") // urgent | high | normal
+  status         String    @default("new") // new | assigned | in_progress | done | cancelled
+  assignee       String? // staff/subcontractor (free text in v1)
+  costAmount     Decimal?  @map("cost_amount") @db.Decimal(12, 2)
+  slaDueAt       DateTime? @map("sla_due_at")
+  raisedByTenant Boolean   @default(false) @map("raised_by_tenant")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  firm Firm    @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  unit PmUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@index([firmId, status, priority])
+  @@map("pm_work_orders")
 }
 
 // Audit/history of subscription charges + plan changes. In dev mode (no provider
