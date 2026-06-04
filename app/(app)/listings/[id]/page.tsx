@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -27,7 +28,7 @@ export default async function MarketplaceListingPage({ params }: { params: Promi
     where: { id },
     include: {
       photos: { orderBy: { position: "asc" } },
-      owner: { select: { verifiedAt: true } },
+      owner: { select: { id: true, name: true, photoUrl: true, verifiedAt: true, kycStatus: true } },
       bookings: { where: { status: "active" }, take: 1 },
     },
   });
@@ -95,6 +96,35 @@ export default async function MarketplaceListingPage({ params }: { params: Promi
           ownerVerified={!!l.owner.verifiedAt}
         />
       }
-    />
+    >
+      <section>
+        <h2 className="text-lg font-semibold text-ink mb-3">About the owner</h2>
+        <Link
+          href={`/owners/${l.owner.id}`}
+          className="flex items-center gap-3 rounded-lg border border-line bg-surface p-4 hover:border-accent/60 transition-colors"
+        >
+          <div className="w-12 h-12 rounded-full bg-accent-soft overflow-hidden flex items-center justify-center shrink-0">
+            {l.owner.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={l.owner.photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-accent font-semibold">{l.owner.name.slice(0, 1).toUpperCase()}</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-ink">{l.owner.name}</div>
+            <div className="text-xs text-ink-muted">
+              {l.owner.verifiedAt
+                ? "✓ Verified owner"
+                : l.owner.kycStatus === "submitted"
+                  ? "KYC under review"
+                  : "KYC pending"}
+            </div>
+          </div>
+          <span className="text-sm text-accent shrink-0">View profile &amp; portfolio →</span>
+        </Link>
+        <p className="text-xs text-ink-faint mt-2">Owner contact stays on-platform — reach them via chat.</p>
+      </section>
+    </PropertyDetail>
   );
 }

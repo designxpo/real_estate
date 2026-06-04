@@ -24,6 +24,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     return ok({
       threads: threads.map((t) => ({
         id: t.id,
+        firmId: t.firmId,
         firmName: t.firm.name,
         unread: t.ownerUnread,
         lastMessageAt: t.lastMessageAt,

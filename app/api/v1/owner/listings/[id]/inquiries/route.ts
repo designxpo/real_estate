@@ -37,6 +37,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const inquiries = bookings.map((b) => ({
       brokerName: userMap.get(b.userId)?.name ?? "Broker",
       brokerPhone: null, // on-platform only — no off-platform contact
+      firmId: b.firmId,
       firmName: b.firm.name,
       unlockedAt: b.bookedAt,
       bookingStatus: b.status, // active / closed / expired / cancelled

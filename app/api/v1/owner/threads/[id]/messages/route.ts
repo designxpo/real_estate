@@ -22,7 +22,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     if (!thread) return fail("Thread not found", 404);
     await markRead(thread.id, "owner");
     const firm = await prisma.firm.findUnique({ where: { id: thread.firmId }, select: { name: true } });
-    return ok({ threadId: thread.id, firmName: firm?.name ?? "Broker", messages: await listMessages(thread.id) });
+    return ok({ threadId: thread.id, firmId: thread.firmId, firmName: firm?.name ?? "Broker", messages: await listMessages(thread.id) });
   });
 }
 

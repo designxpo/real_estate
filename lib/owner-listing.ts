@@ -20,7 +20,7 @@ type ListingWithPhotos = MarketplaceListing & {
   photos?: MarketplaceListingPhoto[];
   managedByFirm?: { id: string; name: string } | null;
   managedByUser?: { id: string; name: string } | null;
-  bookings?: { status: string; expiresAt: Date; firm?: { name: string } | null }[];
+  bookings?: { status: string; expiresAt: Date; firmId: string; firm?: { name: string } | null }[];
 };
 
 function daysLeftFrom(expiresAt: Date): number {
@@ -72,7 +72,7 @@ export function serializeListing(l: ListingWithPhotos) {
     booking: (() => {
       const b = (l.bookings ?? []).find((x) => x.status === "active");
       return b
-        ? { firmName: b.firm?.name ?? null, status: b.status, expiresAt: b.expiresAt, daysLeft: daysLeftFrom(b.expiresAt) }
+        ? { firmId: b.firmId, firmName: b.firm?.name ?? null, status: b.status, expiresAt: b.expiresAt, daysLeft: daysLeftFrom(b.expiresAt) }
         : null;
     })(),
     photos: (l.photos ?? [])
