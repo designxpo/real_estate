@@ -18,7 +18,13 @@ function secret(): Uint8Array {
 }
 
 export function generateOtp(): string {
-  if (process.env.NODE_ENV !== "production") return "123456";
+  // Fixed test code so testers can sign in without a live SMS provider.
+  // Active automatically in non-production, OR in production when OTP_TEST_MODE=true
+  // (a staging/testing deploy). ⚠️ MUST be turned off before real launch — once an
+  // SMS provider is live, set OTP_TEST_MODE=false (or unset) so codes are random.
+  if (process.env.NODE_ENV !== "production" || process.env.OTP_TEST_MODE === "true") {
+    return process.env.OTP_TEST_CODE || "123456";
+  }
   // 6-digit, leading zeros allowed
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 }
