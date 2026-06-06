@@ -6,7 +6,7 @@
 // already enforces at booking time.
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/db";
-import { PLANS, getPlan, FREE_PLAN, type Plan } from "@/lib/plans";
+import { getPlans, getPlan, FREE_PLAN_ID, type Plan } from "@/lib/plans";
 
 export class BillingError extends Error {
   constructor(public code: string, message: string) {
@@ -34,7 +34,7 @@ export async function getFirmBilling(firmId: string): Promise<FirmBilling> {
     where: { id: firmId },
     select: { planId: true, subscriptionStatus: true, subscriptionRenewsAt: true, maxActiveBookings: true },
   });
-  const plan = getPlan(firm?.planId);
+  const plan = await getPlan(firm?.planId);
   const activeBookings = await prisma.listingBooking.count({ where: { firmId, status: "active" } });
   const cap = firm?.maxActiveBookings ?? plan.maxActiveBookings;
   return {
@@ -55,8 +55,8 @@ interface ActivateOpts {
 
 // Switch a firm to a plan: update the cap + status, and record the transaction.
 export async function activatePlan(firmId: string, planId: string, opts: ActivateOpts): Promise<Plan> {
-  const plan = getPlan(planId);
-  const renewsAt = plan.id === FREE_PLAN.id ? null : new Date(Date.now() + 30 * 86_400_000);
+  const plan = await getPlan(planId);
+  const renewsAt = plan.id === FREE_PLAN_ID ? null : new Date(Date.now() + 30 * 86_400_000);
   await prisma.$transaction(async (tx) => {
     await tx.firm.update({
       where: { id: firmId },
@@ -83,11 +83,12 @@ export async function activatePlan(firmId: string, planId: string, opts: Activat
 }
 
 export async function cancelSubscription(firmId: string): Promise<void> {
+  const free = await getPlan(FREE_PLAN_ID);
   await prisma.firm.update({
     where: { id: firmId },
     data: {
-      planId: FREE_PLAN.id,
-      maxActiveBookings: FREE_PLAN.maxActiveBookings,
+      planId: free.id,
+      maxActiveBookings: free.maxActiveBookings,
       subscriptionStatus: "cancelled",
       subscriptionRenewsAt: null,
     },
@@ -129,4 +130,4 @@ export function verifyRazorpayWebhook(rawBody: string, signature: string | null)
   return expected === signature;
 }
 
-export { PLANS };
+export { getPlans };

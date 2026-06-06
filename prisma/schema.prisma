@@ -225,6 +225,8 @@ model Firm {
   planId               String    @default("free") @map("plan_id")
   subscriptionStatus   String    @default("active") @map("subscription_status") // active | past_due | cancelled
   subscriptionRenewsAt DateTime? @map("subscription_renews_at")
+  // Platform-owner action: when set, the firm's brokers are locked out (login + app shell).
+  suspendedAt   DateTime? @map("suspended_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   users             User[]
@@ -1193,4 +1195,51 @@ model MarketplaceListingPhoto {
 
   @@index([listingId])
   @@map("marketplace_listing_photos")
+}
+
+// ─── Platform owner (super-admin) ──────────────────────────────────────────
+// A god-view operator sitting ABOVE all firms. Deliberately NOT a User (Users
+// are firm-scoped). Own table + own session cookie, fully isolated.
+model PlatformAdmin {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  name         String?
+  passwordHash String            @map("password_hash")
+  lastLoginAt  DateTime?         @map("last_login_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  sessions PlatformSession[]
+
+  @@map("platform_admins")
+}
+
+model PlatformSession {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("platform_sessions")
+}
+
+// Subscription plan catalog — DB-backed so the platform owner edits pricing/caps
+// live from the console. Seeded from DEFAULT_PLANS in lib/plans.ts. The `id` is a
+// stable slug (free | starter | pro | elite | …) referenced by Firm.planId.
+model Plan {
+  id                String   @id
+  name              String
+  tagline           String   @default("")
+  priceMonthly      Int      @default(0) @map("price_monthly") // INR rupees, 0 = free
+  maxActiveBookings Int      @default(1) @map("max_active_bookings")
+  features          String[] @default([]) // free-text feature labels for the pricing card
+  sortOrder         Int      @default(0) @map("sort_order")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("plans")
 }

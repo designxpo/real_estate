@@ -8,7 +8,7 @@ import { Pill, StatusDot } from "@/components/ui/pill";
 import { Button } from "@/components/ui/button";
 import { GettingStarted } from "@/components/getting-started";
 import { Sparkline } from "@/components/sparkline";
-import { getPlan, PLANS } from "@/lib/plans";
+import { getPlan, getPlans } from "@/lib/plans";
 import { LEAD_NEXT } from "@/lib/next-action";
 import { STAGE_LABELS, STAGE_COLORS } from "@/lib/leads";
 
@@ -117,8 +117,8 @@ export default async function HomePage() {
     : null;
   const indicativeYield = avgRent && avgSale ? ((avgRent * 12) / avgSale) * 100 : null;
 
-  const plan = getPlan(firm?.planId);
-  const nextPlan = PLANS.find((p) => p.priceMonthly > plan.priceMonthly);
+  const plan = await getPlan(firm?.planId);
+  const nextPlan = (await getPlans()).find((p) => p.priceMonthly > plan.priceMonthly);
 
   const checklist = checklistProgress(checklistItems);
   const greeting = greetingFor(now);

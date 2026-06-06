@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUserPage } from "@/lib/auth";
 import { getFirmBilling, isBillingConfigured } from "@/lib/billing";
-import { PLANS, priceLabel } from "@/lib/plans";
+import { getPlans, priceLabel } from "@/lib/plans";
 import { BillingPlans } from "@/components/billing-plans";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function BillingPage() {
   const user = await requireUserPage();
   const billing = await getFirmBilling(user.firmId);
+  const plans = await getPlans();
   const canManage = user.role === "owner" || user.role === "principal";
 
   return (
@@ -53,7 +54,7 @@ export default async function BillingPage() {
       </div>
 
       {canManage ? (
-        <BillingPlans plans={PLANS} currentPlanId={billing.plan.id} configured={isBillingConfigured()} />
+        <BillingPlans plans={plans} currentPlanId={billing.plan.id} configured={isBillingConfigured()} />
       ) : (
         <div className="text-sm text-ink-muted">Only the firm owner can change the plan.</div>
       )}

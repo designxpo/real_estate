@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
-    const plan = getPlan(parsed.data.planId);
+    const plan = await getPlan(parsed.data.planId);
 
     // Free plan = downgrade, no payment.
     if (plan.priceMonthly === 0) {

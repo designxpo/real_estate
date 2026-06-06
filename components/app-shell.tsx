@@ -80,6 +80,14 @@ export function AppShell({
 
   function isActive(href: string) {
     if (href === "/home") return pathname === "/home";
+    // Marketplace discovery spans more than /marketplace: the map search (/search)
+    // and listing detail pages (/listings/[id]) are reached from it and belong to
+    // the same section, so keep "Marketplace" selected on those routes too.
+    if (href === "/marketplace") {
+      return ["/marketplace", "/search", "/listings"].some(
+        (p) => pathname === p || pathname.startsWith(p + "/")
+      );
+    }
     return pathname === href || pathname.startsWith(href + "/");
   }
 

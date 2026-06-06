@@ -74,16 +74,29 @@ export function MapSearch({ listings, withCoords, filters }: { listings: Listing
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let map: any;
     (async () => {
-      const maplibre = await import("maplibre-gl");
+      const mod = await import("maplibre-gl");
+      // maplibre-gl ships a UMD bundle with no ESM `exports` map. Node `require`
+      // exposes the API as named exports, but the browser bundler's CJS interop
+      // puts the whole API on `.default` — so `mod.Map` is undefined there.
+      // Resolve whichever shape we got.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const maplibre: any = (mod as any).default ?? mod;
       if (cancelled || !mapEl.current) return;
-      map = new maplibre.Map({
-        container: mapEl.current,
-        style: OSM_STYLE,
-        center: [78.96, 22.59],
-        zoom: 4,
-        attributionControl: { compact: true },
-      });
-      map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      try {
+        map = new maplibre.Map({
+          container: mapEl.current,
+          style: OSM_STYLE,
+          center: [78.96, 22.59],
+          zoom: 4,
+          attributionControl: { compact: true },
+        });
+        map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+        // Container may not have its final size on first paint; nudge a resize.
+        map.once("load", () => map.resize());
+      } catch (err) {
+        console.error("[map-search] MapLibre failed to initialise", err);
+        return;
+      }
 
       const pts = listings.filter((l) => l.lat != null && l.lng != null);
       markers.current = [];

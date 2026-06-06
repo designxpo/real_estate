@@ -208,6 +208,18 @@ export async function releaseBooking(bookingId: string, firmId: string) {
   await _release(booking.id, booking.listingId, booking.leadId, "cancelled", "Broker released the booking — relisted");
 }
 
+// Release ALL of a firm's active bookings — used when the platform operator
+// suspends a firm, so its claims don't trap owners' listings under a firm that
+// can no longer act. Each freed listing relists to the marketplace. Returns the
+// number released. Reversible in effect: after unsuspend a broker can re-book.
+export async function releaseFirmBookings(firmId: string): Promise<number> {
+  const active = await prisma.listingBooking.findMany({ where: { firmId, status: "active" } });
+  for (const b of active) {
+    await _release(b.id, b.listingId, b.leadId, "cancelled", "Broker firm suspended — booking released, listing relisted");
+  }
+  return active.length;
+}
+
 // Sweep expired bookings → relist. Safe to call repeatedly (lazy + cron).
 export async function releaseExpiredBookings(): Promise<number> {
   const due = await prisma.listingBooking.findMany({

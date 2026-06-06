@@ -15,7 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       select: {
         id: true, name: true, firmType: true, city: true, state: true,
         reraNumber: true, reraAuthority: true, website: true, about: true,
-        verificationStatus: true, createdAt: true, ownerUserId: true,
+        verificationStatus: true, createdAt: true, ownerUserId: true, suspendedAt: true,
       },
     });
     if (!firm) return fail("Broker not found", 404);
@@ -38,6 +38,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       website: firm.website,
       about: firm.about,
       verified: firm.verificationStatus === "verified",
+      active: !firm.suspendedAt,
       brokerName: principal?.name ?? null,
       brokerPhotoUrl: principal?.photoUrl ?? null,
       dealsClosed,

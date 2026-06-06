@@ -82,8 +82,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const withCoords = listings.filter((l) => l.lat != null && l.lng != null).length;
 
+  // Changing only the query string re-renders this page but does NOT remount the
+  // client component, so its useState(filters) would go stale (selected tab stuck,
+  // map markers not rebuilt). Keying on the active filters forces a fresh mount
+  // on every filter change.
+  const filterKey = [mode, sp.q, sp.city, sp.propertyType, sp.bhk, sp.budgetMin, sp.budgetMax, sp.rera]
+    .map((v) => v ?? "")
+    .join("|");
+
   return (
     <MapSearch
+      key={filterKey}
       listings={listings}
       withCoords={withCoords}
       filters={{

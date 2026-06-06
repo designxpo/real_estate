@@ -21,8 +21,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const thread = await ownedThread(owner.id, id);
     if (!thread) return fail("Thread not found", 404);
     await markRead(thread.id, "owner");
-    const firm = await prisma.firm.findUnique({ where: { id: thread.firmId }, select: { name: true } });
-    return ok({ threadId: thread.id, firmId: thread.firmId, firmName: firm?.name ?? "Broker", messages: await listMessages(thread.id) });
+    const firm = await prisma.firm.findUnique({ where: { id: thread.firmId }, select: { name: true, suspendedAt: true } });
+    return ok({
+      threadId: thread.id,
+      firmId: thread.firmId,
+      firmName: firm?.name ?? "Broker",
+      firmActive: !firm?.suspendedAt,
+      messages: await listMessages(thread.id),
+    });
   });
 }
 
@@ -33,6 +39,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   return withOwner(req, async (owner) => {
     const thread = await ownedThread(owner.id, id);
     if (!thread) return fail("Thread not found", 404);
+    // A suspended broker firm can't read or reply — block new owner messages so
+    // they don't pile up unseen.
+    const firm = await prisma.firm.findUnique({ where: { id: thread.firmId }, select: { suspendedAt: true } });
+    if (firm?.suspendedAt) return fail("This broker is currently inactive. You can't send messages right now.", 409);
     const parsed = sendSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return fail("Invalid request", 400);
     try {
