@@ -142,6 +142,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.code }, { status: e.code === "FORBIDDEN" ? 403 : 401 });
     }
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

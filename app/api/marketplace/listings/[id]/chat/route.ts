@@ -15,7 +15,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.code }, { status: 401 });
     if (e instanceof ChatError) return NextResponse.json({ error: e.message, code: e.code }, { status: 404 });
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -41,6 +42,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (e instanceof ChatError) {
       return NextResponse.json({ error: e.message, code: e.code }, { status: e.code === "not_found" ? 404 : 400 });
     }
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

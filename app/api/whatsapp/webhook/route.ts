@@ -1,6 +1,11 @@
 // Meta WhatsApp webhook. GET = subscription handshake. POST = inbound messages
 // and delivery-status receipts (signature-verified, idempotent by message id).
+//
+// Processing is bulk + atomic: the whole batch is flattened, deduped/looked-up in
+// a handful of queries, then written in a single $transaction (no per-message
+// round-trips, no partial-batch state on mid-loop failure).
 import { NextResponse } from "next/server";
+import type { Prisma, WaMessageStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { verifyChallenge, verifyWebhookSignature } from "@/lib/whatsapp";
 
@@ -10,6 +15,16 @@ export async function GET(req: Request) {
   if (challenge) return new Response(challenge, { status: 200 });
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
+
+type InboundMsg = { id: string; from: string; text?: { body: string } };
+type StatusRcpt = { id: string; status: string };
+
+const STATUS_MAP: Record<string, WaMessageStatus> = {
+  delivered: "delivered",
+  read: "read",
+  sent: "sent",
+  failed: "failed",
+};
 
 export async function POST(req: Request) {
   const raw = await req.text();
@@ -25,50 +40,70 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
   }
 
-  // Walk entry → changes → value for messages + statuses.
+  // Flatten entry → changes → value, collecting every inbound message + status.
+  const messages: InboundMsg[] = [];
+  const statuses: StatusRcpt[] = [];
   const entries = (payload as { entry?: unknown[] }).entry ?? [];
   for (const entry of entries as Array<{ changes?: Array<{ value?: Record<string, unknown> }> }>) {
     for (const change of entry.changes ?? []) {
       const value = change.value ?? {};
-      const firstFirm = await prisma.firm.findFirst({ select: { id: true } });
-      if (!firstFirm) continue;
+      messages.push(...((value.messages as InboundMsg[]) ?? []));
+      statuses.push(...((value.statuses as StatusRcpt[]) ?? []));
+    }
+  }
 
-      // Inbound messages
-      const messages = (value.messages as Array<{ id: string; from: string; text?: { body: string } }>) ?? [];
+  if (messages.length === 0 && statuses.length === 0) {
+    return NextResponse.json({ ok: true });
+  }
+
+  // --- Inbound messages: bulk dedupe + bulk contact lookup, then createMany ---
+  const createData: Prisma.WaMessageCreateManyInput[] = [];
+  if (messages.length > 0) {
+    const firstFirm = await prisma.firm.findFirst({ select: { id: true } });
+    if (firstFirm) {
+      const ids = messages.map((m) => m.id);
+      const phones = Array.from(new Set(messages.map((m) => `+${m.from}`)));
+      const [existing, contacts] = await Promise.all([
+        prisma.waMessage.findMany({ where: { metaMessageId: { in: ids } }, select: { metaMessageId: true } }),
+        prisma.contact.findMany({ where: { phone: { in: phones } }, select: { id: true, firmId: true, phone: true } }),
+      ]);
+      const seen = new Set(existing.map((e) => e.metaMessageId));
+      const byPhone = new Map(contacts.map((c) => [c.phone, c]));
       for (const m of messages) {
-        const exists = await prisma.waMessage.findUnique({ where: { metaMessageId: m.id } });
-        if (exists) continue;
-        const contact = await prisma.contact.findFirst({ where: { phone: `+${m.from}` } });
-        await prisma.waMessage.create({
-          data: {
-            firmId: contact?.firmId ?? firstFirm.id,
-            contactId: contact?.id,
-            toPhone: m.from,
-            fromPhone: m.from,
-            direction: "inbound",
-            status: "received",
-            bodyText: m.text?.body,
-            metaMessageId: m.id,
-          },
+        if (seen.has(m.id)) continue; // already stored (or duplicated within this batch)
+        seen.add(m.id);
+        const c = byPhone.get(`+${m.from}`);
+        createData.push({
+          firmId: c?.firmId ?? firstFirm.id,
+          contactId: c?.id,
+          toPhone: m.from,
+          fromPhone: m.from,
+          direction: "inbound",
+          status: "received",
+          bodyText: m.text?.body,
+          metaMessageId: m.id,
         });
-      }
-
-      // Delivery / read receipts
-      const statuses = (value.statuses as Array<{ id: string; status: string }>) ?? [];
-      for (const s of statuses) {
-        const map: Record<string, "delivered" | "read" | "sent" | "failed"> = {
-          delivered: "delivered",
-          read: "read",
-          sent: "sent",
-          failed: "failed",
-        };
-        const next = map[s.status];
-        if (next) {
-          await prisma.waMessage.updateMany({ where: { metaMessageId: s.id }, data: { status: next } });
-        }
       }
     }
   }
+
+  // --- Delivery/read receipts: group ids by mapped status, one updateMany each ---
+  const grouped = new Map<WaMessageStatus, string[]>();
+  for (const s of statuses) {
+    const next = STATUS_MAP[s.status];
+    if (!next) continue;
+    (grouped.get(next) ?? grouped.set(next, []).get(next)!).push(s.id);
+  }
+
+  // Atomic: the whole batch commits together, so we never half-process a webhook.
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  if (createData.length > 0) {
+    ops.push(prisma.waMessage.createMany({ data: createData, skipDuplicates: true }));
+  }
+  for (const [status, ids] of grouped) {
+    ops.push(prisma.waMessage.updateMany({ where: { metaMessageId: { in: ids } }, data: { status } }));
+  }
+  if (ops.length > 0) await prisma.$transaction(ops);
 
   return NextResponse.json({ ok: true });
 }

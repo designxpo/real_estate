@@ -7,6 +7,7 @@ import { createSession, verifyPassword, homePathForRole } from "@/lib/auth";
 import { passwordLoginSchema } from "@/lib/validators";
 import { normalizePhone } from "@/lib/utils";
 import { logActivity } from "@/lib/activity";
+import { rateLimit, clientIp, tooMany } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -15,6 +16,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Enter your email or phone and password" }, { status: 400 });
   }
   const { identifier, password } = parsed.data;
+
+  // Anti-brute-force / credential-stuffing: cap attempts per identifier (the
+  // account under attack) and per IP, before doing any password comparison.
+  const idKey = identifier.trim().toLowerCase();
+  const byId = rateLimit(`login:id:${idKey}`, 5, 15 * 60 * 1000); // 5 / 15 min per account
+  if (!byId.ok) return tooMany(byId.retryAfterSec);
+  const byIp = rateLimit(`login:ip:${clientIp(req)}`, 20, 15 * 60 * 1000); // 20 / 15 min per IP
+  if (!byIp.ok) return tooMany(byIp.retryAfterSec);
 
   const isEmail = identifier.includes("@");
   const user = isEmail

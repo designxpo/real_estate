@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime: transaction pooler (PgBouncer, port 6543). Migrations/introspection
+  // use directUrl (session pooler, port 5432) which supports DDL + prepared stmts.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -603,6 +606,9 @@ model Property {
   @@index([firmId])
   @@index([status])
   @@index([landlordUserId])
+  // Search vectors: keep city/locality + type filters off sequential scans at scale.
+  @@index([city, locality])
+  @@index([listingType, propertyType])
   @@map("properties")
 }
 
@@ -1081,6 +1087,8 @@ model MarketplaceListing {
   @@index([ownerId])
   @@index([managedByFirmId])
   @@index([city, moderation, status])
+  // Marketplace /search filters by mode (listingType) + propertyType.
+  @@index([listingType, propertyType])
   @@map("marketplace_listings")
 }
 

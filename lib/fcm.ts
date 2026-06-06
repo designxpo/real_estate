@@ -1,6 +1,12 @@
 // Firebase Cloud Messaging sender for owner push notifications. Uses the
-// firebase-admin SDK with a service-account key. No-ops gracefully if the key
-// file is absent (so the app runs fine without push configured).
+// firebase-admin SDK with a service-account key. No-ops gracefully if no key is
+// configured (so the app runs fine without push).
+//
+// Credential source, in priority order:
+//   1. FIREBASE_SERVICE_ACCOUNT_B64  — base64 of the service-account JSON
+//      (best for serverless/Vercel: no filesystem, no newline mangling).
+//   2. FIREBASE_SERVICE_ACCOUNT_JSON — raw JSON string.
+//   3. A file at FIREBASE_SERVICE_ACCOUNT_PATH (default ./firebase-service-account.json) for local dev.
 import admin from "firebase-admin";
 import fs from "fs";
 import path from "path";
@@ -10,18 +16,37 @@ function serviceAccountPath(): string {
   return process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(process.cwd(), "firebase-service-account.json");
 }
 
+// Parsed service account from env or disk, or null if none configured.
+function loadServiceAccount(): admin.ServiceAccount | null {
+  try {
+    const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
+    if (b64) return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (raw) return JSON.parse(raw);
+    const p = serviceAccountPath();
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("[fcm] failed to parse service account", e);
+  }
+  return null;
+}
+
 export function isFcmConfigured(): boolean {
-  return fs.existsSync(serviceAccountPath());
+  return !!(
+    process.env.FIREBASE_SERVICE_ACCOUNT_B64 ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    fs.existsSync(serviceAccountPath())
+  );
 }
 
 let _ready = false;
 function ensureApp(): boolean {
   if (_ready) return true;
-  const p = serviceAccountPath();
-  if (!fs.existsSync(p)) return false;
+  const sa = loadServiceAccount();
+  if (!sa) return false;
   try {
     if (admin.apps.length === 0) {
-      const sa = JSON.parse(fs.readFileSync(p, "utf8"));
       admin.initializeApp({ credential: admin.credential.cert(sa) });
     }
     _ready = true;

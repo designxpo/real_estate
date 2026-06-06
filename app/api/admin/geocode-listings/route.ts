@@ -4,14 +4,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { geocode } from "@/lib/geocode";
+import { checkCronAuth } from "@/lib/cron-auth";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = checkCronAuth(req);
+  if (denied) return denied;
 
   const due = await prisma.marketplaceListing.findMany({
     where: { moderation: "live", OR: [{ lat: null }, { lng: null }] },

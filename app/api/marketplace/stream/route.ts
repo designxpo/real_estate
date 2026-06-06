@@ -13,7 +13,8 @@ export async function GET(req: Request) {
     firmId = user.firmId;
   } catch (e) {
     if (e instanceof AuthError) return new Response("Unauthorized", { status: 401 });
-    throw e;
+    console.error(e);
+    return new Response("Internal Server Error", { status: 500 });
   }
 
   const encoder = new TextEncoder();

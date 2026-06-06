@@ -37,7 +37,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ ...serializeListing(listing), activity: activity.map(serializeActivity) });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.code }, { status: 401 });
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -113,6 +114,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ ...serializeListing(updated), activity: activity.map(serializeActivity) });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.code }, { status: 401 });
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

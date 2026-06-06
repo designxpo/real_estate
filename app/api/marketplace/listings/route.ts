@@ -70,6 +70,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ listings: data });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.code }, { status: 401 });
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

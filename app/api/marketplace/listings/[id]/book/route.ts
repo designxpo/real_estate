@@ -47,6 +47,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       const status = e.code === "cap_reached" ? 402 : e.code === "not_found" ? 404 : 409;
       return NextResponse.json({ error: e.message, code: e.code }, { status });
     }
-    throw e;
+    console.error(e);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
