@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { formatINR } from "@/lib/utils";
+import { siteUrl, citySlug } from "@/lib/site";
 import { RequestVisitForm } from "@/components/request-visit-form";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +28,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: property.title,
     description: desc,
+    alternates: { canonical: `${siteUrl}/p/${slug}` },
     openGraph: {
       title: property.title,
       description: desc,
+      url: `${siteUrl}/p/${slug}`,
       images: property.photos[0]?.url ? [property.photos[0].url] : [],
     },
   };
@@ -46,9 +50,52 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
   if (property.facing) facts.push(["Facing", property.facing]);
   if (property.floor != null) facts.push(["Floor", `${property.floor}/${property.totalFloors ?? "?"}`]);
 
+  // Breadcrumb trail: Home › City (hub) › Property. Pushes link equity up to the
+  // city hub and renders BreadcrumbList structured data for rich results.
+  const cityHref = `/explore/${citySlug(property.city)}`;
+  const crumbs = [
+    { name: "Home", url: siteUrl + "/" },
+    { name: property.city, url: `${siteUrl}${cityHref}` },
+    { name: property.title, url: `${siteUrl}/p/${slug}` },
+  ];
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      item: c.url,
+    })),
+  };
+  const listingLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: property.title,
+    description: property.description ?? undefined,
+    image: property.photos.map((p) => p.url),
+    category: property.propertyType,
+    offers: {
+      "@type": "Offer",
+      price: property.priceAmount.toString(),
+      priceCurrency: "INR",
+      availability: "https://schema.org/InStock",
+      url: `${siteUrl}/p/${slug}`,
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(listingLd) }} />
       <div className="max-w-lg mx-auto bg-white min-h-screen">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-gray-500 px-4 py-3 flex-wrap">
+          <Link href="/" className="hover:text-gray-900">Home</Link>
+          <span>›</span>
+          <Link href={cityHref} className="hover:text-gray-900">{property.city}</Link>
+          <span>›</span>
+          <span className="text-gray-700 truncate max-w-[60%]">{property.title}</span>
+        </nav>
         {property.photos[0] && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={property.photos[0].url} alt={property.title} className="w-full aspect-video object-cover" />
