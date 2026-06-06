@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Broker Platform",
+  title: "Keya",
   description: "Listings, leads, and commissions for Indian real estate brokers",
 };
 

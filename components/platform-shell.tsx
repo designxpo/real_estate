@@ -35,10 +35,9 @@ export function PlatformShell({
     <div className="min-h-screen bg-app flex flex-col">
       <header className="h-14 flex items-center justify-between border-b border-line px-4 md:px-5">
         <Link href="/platform" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-gradient-to-br from-accent to-accent-glow flex items-center justify-center text-white font-bold text-sm">
-            ◆
-          </div>
-          <span className="font-semibold text-ink tracking-tight">Platform Console</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/keya_web.svg" alt="Keya" className="h-6 w-auto" />
+          <span className="text-xs text-ink-faint font-medium">Console</span>
         </Link>
         <div className="flex items-center gap-3">
           <span className="hidden sm:block text-xs text-ink-muted">{admin.name || admin.email}</span>

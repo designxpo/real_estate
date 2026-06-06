@@ -18,11 +18,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-card bg-gradient-to-br from-accent to-accent-glow mb-3 text-white font-bold text-xl">
-            B
-          </div>
-          <h1 className="text-2xl font-semibold text-ink tracking-tight">Broker</h1>
-          <p className="text-sm text-ink-muted mt-1">Listings, leads & commissions for Indian brokers</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/keya_web.svg" alt="Keya" className="h-10 w-auto mx-auto mb-3" />
+          <p className="text-sm text-ink-muted mt-1">Listings, leads &amp; commissions for Indian brokers</p>
         </div>
 
         <Card className="space-y-4">

@@ -62,6 +62,8 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-xl">
         <div className="text-center mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/keya_web.svg" alt="Keya" className="h-9 w-auto mx-auto mb-4" />
           <h1 className="text-3xl font-semibold text-ink tracking-tight">Create your brokerage account</h1>
           <p className="text-sm text-ink-muted mt-1">
             Set up your firm to list, find buyers, and close deals. You can verify your RERA/PAN anytime.

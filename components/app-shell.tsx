@@ -113,10 +113,9 @@ export function AppShell({
                 ☰
               </button>
               <Link href="/home" className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-accent to-accent-glow flex items-center justify-center text-white font-bold text-sm">
-                  B
-                </div>
-                <span className="font-semibold text-ink tracking-tight hidden sm:block">Broker</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/keya_web.svg" alt="Keya" className="h-7 w-auto" />
+                <span className="text-xs text-ink-faint font-medium hidden sm:block">Partner</span>
               </Link>
             </div>
             <div className="flex items-center gap-2">

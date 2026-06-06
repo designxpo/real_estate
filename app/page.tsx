@@ -27,7 +27,7 @@ export default async function Home() {
   const orgLd = {
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
-    name: "Broker",
+    name: "Keya",
     url: siteUrl,
     areaServed: cities.map((c) => c.city),
   };
@@ -92,7 +92,7 @@ export default async function Home() {
       {/* Footer */}
       <footer className="border-t border-line">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-ink-muted">
-          <span>© {new Date().getFullYear()} Broker</span>
+          <span>© {new Date().getFullYear()} Keya</span>
           <div className="flex items-center gap-4">
             <Link href="/explore" className="hover:text-ink">Explore</Link>
             <Link href="/login" className="hover:text-ink">Broker login</Link>
